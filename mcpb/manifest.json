@@ -1,0 +1,29 @@
+{
+  "manifest_version": "0.4",
+  "name": "pianotalk-spike",
+  "display_name": "PianoTalk (spike)",
+  "version": "0.1.0",
+  "description": "Read your digital piano recordings and play phrases back on the piano.",
+  "author": { "name": "tanishi109" },
+  "repository": { "type": "git", "url": "https://github.com/tanishi109/pianotalk" },
+  "license": "MIT",
+  "server": {
+    "type": "uv",
+    "entry_point": "mcpb_main.py",
+    "mcp_config": {
+      "command": "uv",
+      "args": ["run", "--no-dev", "--directory", "${__dirname}", "mcpb_main.py"]
+    }
+  },
+  "tools": [
+    { "name": "list_recordings", "description": "List recent piano recordings" },
+    { "name": "get_recording", "description": "Read a recording as text" },
+    { "name": "play_notes", "description": "Play a phrase on the piano" },
+    { "name": "keep_recording", "description": "Keep a recording from auto-deletion" },
+    { "name": "delete_recording", "description": "Move a recording to the Trash" }
+  ],
+  "compatibility": {
+    "platforms": ["darwin"],
+    "runtimes": { "python": ">=3.12" }
+  }
+}
