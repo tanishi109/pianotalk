@@ -1,53 +1,56 @@
 # PianoTalk
 
-電子ピアノ（Bluetooth MIDI）の演奏を自動で録音し、Claude が会話の中で録音を読んだり、フレーズをピアノで鳴らしたりできるようにするツールです。演奏へのフィードバック、楽典的な分析、続きのフレーズ提案などに使います。
+English | [日本語](README.ja.md)
 
-- **動作環境**：macOS（CoreMIDI と launchd を使います）、Python 3.12 以上（uv が自動で入れます）、Claude デスクトップアプリまたは Claude Code
-- **ピアノ**：MIDI 入出力のある電子ピアノ（Bluetooth MIDI / USB MIDI）。動作を確認した機種は Kawai CN201（Bluetooth MIDI）です。他の機種で動いた・動かなかったという報告を歓迎します。
-- **プライバシー**：録音はこの Mac の `~/PianoTalk/` にだけ保存されます。Claude に渡るのは、会話の中で Claude がツールを呼んだときに返すテキスト（音名・タイミングなど）だけです。
-- PianoTalk は個人が作った非公式のツールです。Anthropic、河合楽器製作所とは関係ありません。
+PianoTalk records everything you play on your digital piano, automatically, and lets Claude read those recordings and play phrases back on the piano during a conversation. Use it for feedback on your playing, music-theory analysis, or asking Claude to continue a phrase you started.
 
-プログラムは次の2つに分かれています。
+- **Requirements**: macOS (uses CoreMIDI and launchd), Python 3.12+ (installed for you by uv), and the Claude desktop app or Claude Code.
+- **Piano**: any digital piano with MIDI in/out (Bluetooth MIDI or USB MIDI). Tested on a Kawai CN201 over Bluetooth MIDI. Reports from other models, working or not, are welcome.
+- **Privacy**: recordings are stored only on your Mac, in `~/PianoTalk/`. The only thing Claude receives is the text a tool returns (note names, timing, and so on) when Claude calls it during a conversation.
+- **Language**: the menu bar and the tool messages are currently in Japanese. Claude reads them without trouble and answers in your language, but the menu items will look unfamiliar. This README gives an English gloss for each one.
+- PianoTalk is an unofficial personal project. It is not affiliated with Anthropic or Kawai Musical Instruments.
 
-| プログラム | 役割 |
+It consists of two programs:
+
+| Program | Role |
 |---|---|
-| **録音デーモン** `pianotalk-recorder` | launchd でログイン時に起動して常駐し、ピアノの演奏を自動で録音する |
-| **MCPサーバー** `pianotalk-mcp` | stdio で動く。Claude デスクトップと Claude Code から使う |
+| **Recorder daemon** `pianotalk-recorder` | Started by launchd at login and stays running, recording your playing automatically |
+| **MCP server** `pianotalk-mcp` | Runs over stdio; used from the Claude desktop app and Claude Code |
 
 ```
 ~/PianoTalk/
-  config.toml                 設定（初回起動時に自動作成）
-  recordings/YYYY-MM-DD/      録音（YYYYMMDD-HHMMSS.mid）
-  recordings/kept/            保存印付き（自動削除しない）
-  suggestions/                Claude が鳴らしたフレーズ
-  logs/recorder.log           デーモンのログ
-  playing.lock                再生中ロック（自動で作成・失効）
+  config.toml                 settings (created on first run)
+  recordings/YYYY-MM-DD/      recordings (YYYYMMDD-HHMMSS.mid)
+  recordings/kept/            kept recordings (never auto-deleted)
+  suggestions/                phrases Claude played
+  logs/recorder.log           daemon log
+  playing.lock                playback lock (created and expired automatically)
 ```
 
-## 動作の要点
+## How it behaves
 
-- **入力を独占しない**：CoreMIDI の入力は複数のアプリで共有できます。五線譜アプリなどと同時に使えます。
-- **録音の開始と終了**：最初のノートオンで録音を始めます。全キーとサステインペダルが離れてから `silence_seconds`（既定3秒）たつと終了し、末尾の無音は保存しません。
-- **記録する内容**：サステイン（CC64）、ソステヌート（CC66）、ソフト（CC67）のペダルも記録します。録音開始前からペダルを踏んでいた場合は、0秒の位置に記録します。
-- **保存しない録音**：音数が `min_notes` 未満、または長さが `min_duration_seconds` 未満の録音は保存しません。
-- **再生中は録音しない**：`play_notes` が鳴らしている間と、その後 `post_play_mute_seconds` の間は入力を無視します。ピアノが受信したMIDIを送り返す機種でも誤って録音しません。
-- **自動再接続**：ピアノの電源オン・オフや Bluetooth の切断・再接続があっても、2秒ごとにポートを探し直して自動でつなぎ直します。
-- **自動削除**：保存期間（既定30日）を過ぎた録音を、起動時と以後24時間ごとにゴミ箱へ移します。`kept/` 以下は対象外です。
-- **削除の方式**：削除はすべて macOS のゴミ箱へ移す方式です。Finder の「戻す」で復元できます。
-- **一時停止中・再生中の扱い**：一時停止中や再生中も、キーとペダルの押下状態だけは追い続けます。その間にキーを離しても、録音が終わらなくなることはありません。
-- **App Nap 対策**：`NSProcessInfo.beginActivity` で App Nap を止めています（アイドル時のスリープは妨げません）。launchd でも `ProcessType=Interactive` を指定しています。
+- **Doesn't take over the input**: CoreMIDI inputs can be shared, so PianoTalk runs alongside notation apps and other MIDI software.
+- **When a take starts and ends**: recording starts at the first note-on. It ends once every key and the sustain pedal have been released for `silence_seconds` (3 s by default). Trailing silence is not saved.
+- **What is recorded**: notes plus the sustain (CC64), sostenuto (CC66), and soft (CC67) pedals. If a pedal was already down when the take started, it is recorded at 0 s.
+- **Takes that are discarded**: takes with fewer than `min_notes` notes or shorter than `min_duration_seconds`.
+- **No recording during playback**: input is ignored while `play_notes` is playing and for `post_play_mute_seconds` afterwards, so pianos that echo received MIDI back don't create bogus takes.
+- **Automatic reconnection**: when the piano is switched off and on, or Bluetooth drops and reconnects, the daemon rescans ports every 2 seconds and reconnects on its own.
+- **Automatic cleanup**: recordings older than the retention period (30 days by default) are moved to the Trash at startup and every 24 hours after that. Anything in `kept/` is left alone.
+- **Deletion**: every deletion moves files to the macOS Trash, so you can restore them with Finder's "Put Back".
+- **While paused or playing back**: the daemon still tracks which keys and pedals are down, so releasing them during that time never leaves a take stuck open.
+- **App Nap**: App Nap is disabled with `NSProcessInfo.beginActivity` (idle sleep is not prevented), and the launchd job uses `ProcessType=Interactive`.
 
-## MCPツール
+## MCP tools
 
-| ツール | 内容 |
+| Tool | What it does |
 |---|---|
-| `list_recordings(limit=20)` | 新しい順に、ID（ファイル名）、日時、長さ、音数、音域、保存印を一覧する |
-| `get_recording(id="latest", start_sec?, end_sec?)` | 冒頭に要約、続いて時刻順のイベントを返す。40ms 以内に鳴った音は和音として1行（音名C4形式・前の打鍵からの間隔・各音の長さとベロシティ・BPM設定時は小節:拍）、ペダルは別行。打鍵が400回を超える録音は区間ごとの概要を返し、`start_sec`/`end_sec` で区間の詳細を読む |
-| `play_notes(notes, bpm?, pedal?)` | 拍単位のノート列をピアノに送って鳴らし、`suggestions/` に .mid として保存する |
-| `keep_recording(id)` | `recordings/kept/` へ移し、自動削除の対象から外す |
-| `delete_recording(id)` | ゴミ箱へ移す |
+| `list_recordings(limit=20)` | Lists recordings, newest first: ID (file name), date/time, length, note count, range, and kept flag |
+| `get_recording(id="latest", start_sec?, end_sec?)` | Returns a summary followed by events in time order. Notes struck within 40 ms are grouped on one line as a chord (note names like C4, gap since the previous strike, each note's length and velocity, and bar:beat when a BPM is set). Pedals get their own lines. Takes with more than 400 strikes are summarized section by section; read a section in detail with `start_sec`/`end_sec` |
+| `play_notes(notes, bpm?, pedal?)` | Plays a list of notes (timed in beats) on the piano and saves it to `suggestions/` as a .mid file |
+| `keep_recording(id)` | Moves a recording to `recordings/kept/` so it is never auto-deleted |
+| `delete_recording(id)` | Moves a recording to the Trash |
 
-`play_notes` の例:
+Example `play_notes` input:
 ```json
 {"bpm": 90,
  "notes": [{"note": "C4", "start": 0, "duration": 1, "velocity": 80},
@@ -56,11 +59,11 @@
  "pedal": [{"start": 0, "end": 2}]}
 ```
 
-## セットアップ
+## Setup
 
-### 1. Python 環境
+### 1. Python environment
 
-[uv](https://docs.astral.sh/uv/) を使います。uv は Python 3.12 本体と依存パッケージを、このフォルダの `.venv` にまとめて入れます。
+PianoTalk uses [uv](https://docs.astral.sh/uv/), which installs Python 3.12 and all dependencies into a `.venv` inside the project folder.
 
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | env UV_NO_MODIFY_PATH=1 sh
@@ -74,79 +77,79 @@ git clone https://github.com/tanishi109/pianotalk.git
 cd pianotalk && ~/.local/bin/uv sync
 ```
 
-以下のコマンドはすべて、この `pianotalk` フォルダで実行します。
+Run every command below from this `pianotalk` folder.
 
-### 2. ピアノを接続する
+### 2. Connect the piano
 
-Bluetooth の場合は「Audio MIDI設定」→「MIDIスタジオ」→ Bluetooth でピアノを接続します。USB の場合はケーブルでつなぐだけです。接続できたかは、次のコマンドで確認できます。
+For Bluetooth, open Audio MIDI Setup → MIDI Studio → Bluetooth and connect the piano. For USB, just plug in the cable. To check that the piano is visible:
 
 ```bash
 .venv/bin/pianotalk-ports
 ```
 
-MIDI 機器が1台だけなら、設定は要りません（自動で選びます。IAC ドライバ、ネットワークセッション、PianoTalk 自身の仮想ポートは数えません）。複数の MIDI 機器をつないでいる場合は、`~/PianoTalk/config.toml` の `input_port` と `output_port` に、ピアノのポート名の一部（例: `"CN201"`）を書いてください。指定は部分一致で、大文字と小文字は区別しません。設定ファイルは最初の起動時に自動で作られます。先に作っておきたい場合は、`.venv/bin/pianotalk-recorder` を一度起動して Ctrl-C で止めてください。
+With only one MIDI device connected, no configuration is needed: PianoTalk picks it automatically (ignoring the IAC Driver, network sessions, and PianoTalk's own virtual ports). With several MIDI devices, set `input_port` and `output_port` in `~/PianoTalk/config.toml` to part of the piano's port name (for example `"CN201"`). Matching is by substring and ignores case. The config file is created on first run. To create it now, start `.venv/bin/pianotalk-recorder` once and stop it with Ctrl-C.
 
-> Bluetooth MIDI は、Mac の再起動後やピアノの電源を入れ直したあとに、自動では再接続されないことがあります。その場合は「Bluetooth設定」で「接続」を押し直してください。接続が戻れば、デーモンは自動で拾い直します。
+> Bluetooth MIDI sometimes does not reconnect by itself after the Mac restarts or the piano is switched off and on. If that happens, click "Connect" again in Bluetooth settings. Once the connection is back, the daemon picks it up automatically.
 
-### 3. 録音デーモンを launchd に登録
+### 3. Register the recorder daemon with launchd
 
 ```bash
 ./launchd/install.sh
 ```
 
-登録すると、ログイン時に自動で起動します。異常終了したときだけ自動で再起動し、メニューの「終了」などで正常に止めた場合は止まったままです。
+From then on the daemon starts at login. It restarts automatically only if it crashes; if you stop it normally (for example with "Quit" in the menu), it stays stopped.
 
-| やりたいこと | 方法 |
+| To… | Do this |
 |---|---|
-| 止める | メニューバーのアイコン →「終了」、または `launchctl kill TERM gui/$(id -u)/com.pianotalk.recorder` |
-| 起動する | `launchctl kickstart gui/$(id -u)/com.pianotalk.recorder` |
-| 再起動する（設定を変えたあと） | `launchctl kickstart -k gui/$(id -u)/com.pianotalk.recorder` |
-| 録音だけ一時的に止める | メニューの「録音を一時停止」／「録音を再開」 |
-| 状態を確認する | `launchctl print gui/$(id -u)/com.pianotalk.recorder \| grep -m1 "state ="` |
-| ログを見る | `tail -f ~/PianoTalk/logs/recorder.log`（メニューの「ログを開く」でも開けます） |
-| 自動起動をやめる・戻す | `launchctl disable gui/$(id -u)/com.pianotalk.recorder` ／ `launchctl enable …` |
-| 登録を解除する | `./launchd/install.sh uninstall`（録音ファイルは残ります） |
+| Stop it | Menu bar icon → 終了 (Quit), or `launchctl kill TERM gui/$(id -u)/com.pianotalk.recorder` |
+| Start it | `launchctl kickstart gui/$(id -u)/com.pianotalk.recorder` |
+| Restart it (after changing settings) | `launchctl kickstart -k gui/$(id -u)/com.pianotalk.recorder` |
+| Pause recording only | Menu → 録音を一時停止 (Pause recording) / 録音を再開 (Resume recording) |
+| Check its state | `launchctl print gui/$(id -u)/com.pianotalk.recorder \| grep -m1 "state ="` |
+| Read the log | `tail -f ~/PianoTalk/logs/recorder.log` (or menu → ログを開く, Open log) |
+| Disable / re-enable autostart | `launchctl disable gui/$(id -u)/com.pianotalk.recorder` / `launchctl enable …` |
+| Unregister | `./launchd/install.sh uninstall` (your recordings are kept) |
 
-#### メニューバーのアイコン
+#### Menu bar icon
 
-デーモンが起動している間は、メニューバーに鍵盤のアイコンが出ます。
+While the daemon runs, a piano-keys icon appears in the menu bar.
 
-| アイコン | 状態 |
+| Icon | Meaning |
 |---|---|
-| 鍵盤（グレー） | ピアノ未接続（接続を待っている） |
-| 鍵盤 | 接続済み・待機中 |
-| 鍵盤 + 赤い ● | 録音中（メニューに経過時間と音数を表示） |
-| 鍵盤 + 赤い ○ | 全キーとペダルが離れ、数秒後に保存する（メニューに残り秒数。短すぎて保存しない場合もそう表示） |
-| 鍵盤 + 緑の ✓ | 保存した（3秒間） |
-| 鍵盤 + – | 短すぎて保存しなかった（3秒間。メニューにも理由を表示） |
-| スピーカー | Claude が再生中（入力を無視） |
-| 一時停止 | 録音を一時停止中 |
+| Keys (gray) | Piano not connected (waiting for it) |
+| Keys | Connected and idle |
+| Keys + red ● | Recording (the menu shows elapsed time and note count) |
+| Keys + red ○ | All keys and pedals released; saving in a few seconds (the menu shows the countdown, and says so if the take is too short to keep) |
+| Keys + green ✓ | Saved (for 3 seconds) |
+| Keys + – | Too short, not saved (for 3 seconds; the menu shows why) |
+| Speaker | Claude is playing (input ignored) |
+| Pause | Recording paused |
 
-メニューには、最後に保存した録音（クリックすると Finder で表示）、録音の一時停止／再開、録音フォルダ、ログ、終了の項目があります。ピアノが未接続のときは「Audio MIDI 設定を開く…」も出ます。Bluetooth の接続が切れたときは、ここから MIDIスタジオを開いて接続し直してください。
+The menu shows the last saved recording (click to reveal it in Finder), pause/resume, the recordings folder, the log, and Quit. When the piano isn't connected it also offers to open Audio MIDI Setup. If Bluetooth drops, open MIDI Studio from there and reconnect.
 
-#### ピアノで聴き返す
+#### Listening back on the piano
 
-メニューの「ピアノで聴き返す ▸」に、最近の自分の録音（10件）と Claude のフレーズ（5件）が並びます。選ぶと接続中のピアノで鳴ります。
+The menu's ピアノで聴き返す ▸ (Play back on piano) submenu lists your 10 most recent recordings and Claude's 5 most recent phrases. Pick one to play it on the connected piano.
 
-- 再生中はアイコンがスピーカーになり、メニューに経過時間と「■ 再生を停止」が出ます。長さの上限はなく、いつでも止められます。
-- 再生中と直後の約1秒は録音しないので、聴き返しが新しい録音として保存されることはありません。
-- ピアノが未接続のときや録音中は選べません。Claude が演奏中のときは再生せず、メニューに理由を表示します（警告音も鳴ります）。
-- もっと古いファイルは「録音フォルダを開く」から探してください。
+- While it plays, the icon turns into a speaker and the menu shows elapsed time and ■ 再生を停止 (Stop playback). There is no length limit and you can stop at any time.
+- Nothing is recorded during playback or for about 1 second after it, so listening back never creates a new take.
+- The submenu is disabled while the piano is disconnected or while you are recording. If Claude is playing, playback is refused and the menu says why (with an alert sound).
+- For older files, use 録音フォルダを開く (Open recordings folder).
 
-- アイコンが見当たらないときは、「システム設定 → メニューバー」で項目が非表示になっていないか確認してください（項目名は Python と表示されることがあります）。
-- アイコンが要らない場合は、`config.toml` の `[ui] menubar = false` にして再起動します。
+- If you can't find the icon, check that it isn't hidden in System Settings → Menu Bar (the item may be listed as "Python").
+- To turn the icon off, set `[ui] menubar = false` in `config.toml` and restart the daemon.
 
-### 4. Claude デスクトップアプリに登録
+### 4. Register with the Claude desktop app
 
-起動中のアプリは設定をメモリに持っていて、`claude_desktop_config.json` を書き戻します。そのため、アプリが動いている間にファイルを書き換えても、いずれ消されてしまいます。次のスクリプトを使うと、アプリの終了を待ってから追記し、起動し直してくれます。
+While the app is running it keeps its settings in memory and writes `claude_desktop_config.json` back out, so edits made while it runs eventually get overwritten. This script waits for the app to quit, adds the entry, and relaunches the app:
 
 ```bash
 ./scripts/register-desktop-mcp.sh --detach
 ```
 
-実行したら、10分以内に Claude アプリを ⌘Q で終了してください。数秒後にアプリが起動し直し、チャットから pianotalk のツールが使えるようになります。ログは `~/PianoTalk/logs/register-desktop-mcp.log` に出ます。
+After running it, quit the Claude app with ⌘Q within 10 minutes. A few seconds later the app relaunches and the pianotalk tools are available in chat. The script logs to `~/PianoTalk/logs/register-desktop-mcp.log`.
 
-手で書く場合は、**アプリを終了してから** 次の内容を追記してください。`/path/to/pianotalk` は、clone したフォルダの絶対パス（`pwd` で表示されるもの）に置き換えます。
+To edit the file by hand, **quit the app first**, then add the entry below. Replace `/path/to/pianotalk` with the absolute path of your clone (what `pwd` prints).
 
 ```json
 {
@@ -158,76 +161,76 @@ MIDI 機器が1台だけなら、設定は要りません（自動で選びま�
 }
 ```
 
-### 5. Claude Code に登録
+### 5. Register with Claude Code
 
-全プロジェクトから使えるよう、user スコープで登録します。`pianotalk` フォルダで実行してください。
+Register it at user scope so every project can use it. Run this from the `pianotalk` folder:
 
 ```bash
 claude mcp add --scope user pianotalk -- "$(pwd)/.venv/bin/pianotalk-mcp"
 ```
 
-`claude` コマンドがない場合は、`~/.claude.json` の最上位にある `"mcpServers"` に、デスクトップ用と同じ内容（`"type": "stdio"` を付ける）を追加しても登録できます。登録できたかは、新しいセッションで `/mcp` を開いて確認します。
+Without the `claude` command, you can instead add the same entry as for the desktop app (plus `"type": "stdio"`) to the top-level `"mcpServers"` in `~/.claude.json`. To check that it worked, open `/mcp` in a new session.
 
-## ピアノなしで試す（仮想MIDIポート）
+## Trying it without a piano (virtual MIDI ports)
 
-### 自動テスト
+### Automated tests
 
-CoreMIDI の仮想ポートを実際に作って、次の点を確かめます。
+The tests create real CoreMIDI virtual ports and check:
 
-- 録音、短い録音の破棄、ペダル中は録音が終わらないこと
-- 他のアプリとのポート共有、後からポートが現れたときの再接続
-- `play_notes` の送信、エコーを録音しないこと
-- 全MCPツールの動作
+- recording, discarding short takes, and that a held pedal keeps a take open
+- sharing a port with another app, and reconnecting when a port appears later
+- sending `play_notes`, and that the echo isn't recorded
+- every MCP tool
 
 ```bash
 uv run pytest -v
 ```
 
-### 手動で通しで試す
+### Manual end-to-end run
 
-1. `~/PianoTalk/config.toml` を次のように一時的に書き換え、デーモンを再起動します（`launchctl kickstart -k ...`。未登録なら `.venv/bin/pianotalk-recorder` を別ターミナルで起動）。
+1. Temporarily change `~/PianoTalk/config.toml` as below and restart the daemon (`launchctl kickstart -k ...`, or if it isn't registered, run `.venv/bin/pianotalk-recorder` in another terminal).
    ```toml
    input_port = "PianoTalk Fake Piano"
    output_port = "PianoTalk Monitor"
    ```
-2. 別のターミナルで仮想の「ピアノ」を鳴らします。演奏が終わって数秒後に `recordings/` に保存されます。
+2. In another terminal, play the virtual "piano". The take is saved to `recordings/` a few seconds after it finishes.
    ```bash
    .venv/bin/pianotalk-fake-piano --repeat 2
    ```
-3. 別のターミナルで `.venv/bin/pianotalk-monitor` を起動したまま、Claude に「さっきの演奏を読んで、続きを弾いて」と頼みます。`play_notes` が送ったノートがモニターに表示されます。
-4. 試し終わったら、`input_port` と `output_port` を元の値（自動選択なら `""`）に戻して、デーモンを再起動します。
+3. Keep `.venv/bin/pianotalk-monitor` running in another terminal and ask Claude to "read what I just played and continue it". The monitor prints the notes `play_notes` sends.
+4. When you're done, set `input_port` and `output_port` back to their previous values (`""` for automatic) and restart the daemon.
 
-## 設定（`~/PianoTalk/config.toml`）
+## Settings (`~/PianoTalk/config.toml`)
 
-| キー | 既定値 | 説明 |
+| Key | Default | Description |
 |---|---|---|
-| `midi.input_port` / `midi.output_port` | `""`（自動） | ポート名（部分一致）。空なら、MIDI機器が1台だけのときにそれを使う |
-| `recording.silence_seconds` | 3.0 | 全キーとペダルを離してから録音を終えるまでの秒数 |
-| `recording.bpm` | 0（未設定） | 設定すると MIDI のテンポに反映し、小節・拍を表示する |
-| `recording.beats_per_bar` | 4 | 小節の拍数 |
-| `recording.min_notes` / `min_duration_seconds` | 3 / 2.0 | これ未満の録音は保存しない |
-| `recording.retention_days` | 30 | 保存期間（0 で自動削除しない） |
-| `playback.default_bpm` | 100 | `play_notes` の BPM 省略時の値 |
-| `playback.post_play_mute_seconds` | 1.0 | 再生後に入力を無視する秒数 |
-| `playback.max_seconds` | 120 | 1回の再生の上限 |
-| `ui.menubar` | true | メニューバーにアイコンを出す |
+| `midi.input_port` / `midi.output_port` | `""` (auto) | Port name (substring match). When empty, the only connected MIDI device is used |
+| `recording.silence_seconds` | 3.0 | Seconds after all keys and pedals are released before a take ends |
+| `recording.bpm` | 0 (unset) | When set, used as the MIDI file tempo and to show bar:beat positions |
+| `recording.beats_per_bar` | 4 | Beats per bar |
+| `recording.min_notes` / `min_duration_seconds` | 3 / 2.0 | Shorter takes are not saved |
+| `recording.retention_days` | 30 | Days to keep recordings (0 disables auto-deletion) |
+| `playback.default_bpm` | 100 | BPM for `play_notes` when none is given |
+| `playback.post_play_mute_seconds` | 1.0 | Seconds to ignore input after playback |
+| `playback.max_seconds` | 120 | Longest allowed single playback |
+| `ui.menubar` | true | Show the menu bar icon |
 
-## 構成
+## Project layout
 
 ```
-pianotalk/config.py    設定・パス
-pianotalk/midiutil.py  音名、MIDI書き出し、録音の解析とテキスト化
-pianotalk/storage.py   ID解決、保存印、ゴミ箱、期限切れの掃除
-pianotalk/lock.py      再生中ロック
-pianotalk/daemon.py    録音デーモン（+ pianotalk-ports）
-pianotalk/menubar.py   メニューバーのアイコンとメニュー
-pianotalk/player.py    メニューからの聴き返し（.mid をピアノで再生）
-pianotalk/server.py    MCPサーバー
-pianotalk/devtools.py  仮想ピアノ、モニター
-launchd/install.sh     launchd 登録・解除
-tests/                 ユニットテスト、仮想ポートの結合テスト
+pianotalk/config.py    settings and paths
+pianotalk/midiutil.py  note names, MIDI writing, analyzing recordings into text
+pianotalk/storage.py   ID lookup, keeping, trash, expiry cleanup
+pianotalk/lock.py      playback lock
+pianotalk/daemon.py    recorder daemon (+ pianotalk-ports)
+pianotalk/menubar.py   menu bar icon and menu
+pianotalk/player.py    listening back from the menu (plays a .mid on the piano)
+pianotalk/server.py    MCP server
+pianotalk/devtools.py  fake piano and monitor
+launchd/install.sh     launchd install/uninstall
+tests/                 unit tests and virtual-port integration tests
 ```
 
-## ライセンス
+## License
 
 [MIT License](LICENSE)
