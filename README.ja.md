@@ -50,7 +50,7 @@
 | ツール | 内容 |
 |---|---|
 | `list_recordings(limit=20)` | 新しい順に、ID（ファイル名）、日時、長さ、音数、音域、保存印を一覧する |
-| `get_recording(id="latest", start_sec?, end_sec?)` | 冒頭に要約、続いて時刻順のイベントを返す。40ms 以内に鳴った音は和音として1行（音名C4形式・前の打鍵からの間隔・各音の長さとベロシティ・BPM設定時は小節:拍）、ペダルは別行。打鍵が400回を超える録音は区間ごとの概要を返し、`start_sec`/`end_sec` で区間の詳細を読む |
+| `get_recording(id="latest", start_sec?, end_sec?)` | 冒頭に要約、続いて時刻順のイベントを返す。40ms 以内に鳴った音は和音として1行（音名C4形式・前の打鍵からの間隔・各音の長さとベロシティ・BPM設定時は小節:拍。打鍵が15ms以上ずれた和音には `（ずれ 32ms: G4→E4→C4）` のように弾いた順を付け、ロールや前打音がわかる）、ペダルは別行。打鍵が400回を超える録音は区間ごとの概要を返し、`start_sec`/`end_sec` で区間の詳細を読む |
 | `play_notes(notes, bpm?, pedal?)` | 拍単位のノート列をピアノに送って鳴らし、`suggestions/` に .mid として保存する |
 | `keep_recording(id)` | `recordings/kept/` へ移し、自動削除の対象から外す |
 | `delete_recording(id)` | ゴミ箱へ移す |

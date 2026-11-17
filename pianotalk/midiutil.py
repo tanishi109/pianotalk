@@ -142,6 +142,7 @@ def _pos(sec: float, rec: Recording) -> str:
 
 
 CHORD_WINDOW = 0.04   # onsets closer than this are shown as one chord row
+SPREAD_NOTE = 0.015   # a chord row whose strikes spread this much or more gets their order
 MAX_ROWS = 400        # beyond this, a whole-take request returns a section overview
 
 
@@ -175,6 +176,11 @@ def _onset_row(g: Onset, prev: float | None, rec: Recording) -> str:
     names = " ".join(note_name(n.pitch) for n in g.notes)
     row = (f"{g.start:7.3f} {gap}  {names}  長さ {_nums([n.duration for n in g.notes], '.2f')}"
            f"  vel {_nums([n.velocity for n in g.notes], 'd')}")
+    spread = max(n.start for n in g.notes) - g.start
+    if len(g.notes) > 1 and spread >= SPREAD_NOTE - 1e-9:
+        order = "→".join(note_name(n.pitch)
+                         for n in sorted(g.notes, key=lambda n: (n.start, n.pitch)))
+        row += f"  （ずれ {spread * 1000:.0f}ms: {order}）"
     if rec.bpm:
         row += f"  [{_pos(g.start, rec)}]"
     return row
@@ -234,7 +240,8 @@ def format_recording(rec: Recording, title: str, start: float | None = None,
         vels = [n.velocity for n in notes]
         lines.append(f"- 音域: {note_name(lo)}–{note_name(hi)}（MIDI {lo}–{hi}）")
         lines.append(f"- 音数: {len(notes)}（打鍵 {len(onsets_all)} 回。"
-                     f"{CHORD_WINDOW * 1000:.0f}ms 以内に鳴った音は和音として 1 行にまとめています）")
+                     f"{CHORD_WINDOW * 1000:.0f}ms 以内に鳴った音は和音として 1 行にまとめ、"
+                     f"打鍵が {SPREAD_NOTE * 1000:.0f}ms 以上ずれた行には「ずれ」と弾いた順を付けています）")
         lines.append(f"- 演奏時間: {rec.duration:.2f} 秒")
         if rec.duration > 0:
             lines.append(f"- 密度: 約 {len(onsets_all) / rec.duration:.1f} 打鍵/秒")

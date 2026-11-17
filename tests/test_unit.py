@@ -208,6 +208,20 @@ def test_chords_grouped_into_one_row(home):
     assert "C4 E4 G4" in rows[0] and "vel 40 60 60" in rows[0]
     assert "+1.00" in rows[1] and "D4" in rows[1]
     assert "打鍵 2 回" in text and "bpm=60" in text
+    assert "ずれ" not in rows[0]  # 12 ms spread: a plain chord
+
+
+def test_rolled_chord_and_grace_note_show_spread_and_order(home):
+    p = home / "roll.mid"
+    ev = [(0.0, on(67)), (0.016, on(64)), (0.032, on(60)),   # downward roll
+          (1.0, off(60)), (1.0, off(64)), (1.0, off(67)),
+          (2.0, on(61)), (2.025, on(62)),                     # grace note C#4 -> D4
+          (2.1, off(61)), (2.5, off(62))]
+    write_midi(ev, p, bpm=None)
+    rows = [l for l in format_recording(analyze(p), "t").splitlines() if "長さ" in l and "vel" in l]
+    assert len(rows) == 2
+    assert "C4 E4 G4" in rows[0] and "（ずれ 32ms: G4→E4→C4）" in rows[0]
+    assert "C#4 D4" in rows[1] and "（ずれ 25ms: C#4→D4）" in rows[1]
 
 
 def test_long_take_gets_overview_and_range_is_detailed(home):

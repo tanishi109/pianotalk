@@ -51,7 +51,7 @@ It consists of two programs:
 | Tool | What it does |
 |---|---|
 | `list_recordings(limit=20)` | Lists recordings, newest first: ID (file name), date/time, length, note count, range, and kept flag |
-| `get_recording(id="latest", start_sec?, end_sec?)` | Returns a summary followed by events in time order. Notes struck within 40 ms are grouped on one line as a chord (note names like C4, gap since the previous strike, each note's length and velocity, and bar:beat when a BPM is set). Pedals get their own lines. Takes with more than 400 strikes are summarized section by section; read a section in detail with `start_sec`/`end_sec` |
+| `get_recording(id="latest", start_sec?, end_sec?)` | Returns a summary followed by events in time order. Notes struck within 40 ms are grouped on one line as a chord (note names like C4, gap since the previous strike, each note's length and velocity, and bar:beat when a BPM is set); when a chord's strikes spread 15 ms or more, the spread and the order they were struck are added (e.g. `(ずれ 32ms: G4→E4→C4)`), so rolls and grace notes stay visible. Pedals get their own lines. Takes with more than 400 strikes are summarized section by section; read a section in detail with `start_sec`/`end_sec` |
 | `play_notes(notes, bpm?, pedal?)` | Plays a list of notes (timed in beats) on the piano and saves it to `suggestions/` as a .mid file |
 | `keep_recording(id)` | Moves a recording to `recordings/kept/` so it is never auto-deleted |
 | `delete_recording(id)` | Moves a recording to the Trash |
