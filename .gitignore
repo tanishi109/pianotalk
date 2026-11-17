@@ -4,3 +4,4 @@ __pycache__/
 *.mid.tmp
 .DS_Store
 dist/
+app/build/

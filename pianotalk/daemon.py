@@ -375,6 +375,9 @@ class Daemon:
         self._next_beat = now + presence.HEARTBEAT
 
     def shutdown(self) -> None:
+        if getattr(self, "_shut_down", False):
+            return
+        self._shut_down = True
         self.player.stop()
         self.drain()
         self.rec.finish()
@@ -412,13 +415,61 @@ class Daemon:
         self.running = False
 
 
+def acquire_single_instance():
+    """Hold an exclusive lock for the life of the process; None if another recorder has it.
+
+    Two recorders on the same piano would save every take twice (e.g. the app
+    started by hand while a launchd-started one is running).
+    """
+    import fcntl
+
+    p = config.recorder_lock_path()
+    p.parent.mkdir(parents=True, exist_ok=True)
+    f = open(p, "a+", encoding="utf-8")
+    try:
+        fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        f.close()
+        return None
+    f.seek(0)
+    f.truncate()
+    f.write(str(os.getpid()))
+    f.flush()
+    return f
+
+
+def in_app_bundle() -> bool:
+    """Running as PianoTalk Recorder.app (py2app sets sys.frozen)."""
+    return bool(getattr(sys, "frozen", False))
+
+
+def tell_already_running() -> None:
+    """The app was opened twice: say so instead of silently quitting."""
+    try:
+        from AppKit import NSAlert, NSApplication
+
+        NSApplication.sharedApplication().activateIgnoringOtherApps_(True)
+        alert = NSAlert.alloc().init()
+        alert.setMessageText_("PianoTalk Recorder はすでに起動しています")
+        alert.setInformativeText_("メニューバーのピアノのアイコンから操作できます。")
+        alert.runModal()
+    except Exception:
+        log.exception("could not show the already-running alert")
+
+
 def main() -> None:
     import argparse
 
     ap = argparse.ArgumentParser(description="PianoTalk recorder daemon")
     ap.add_argument("--no-menubar", action="store_true", help="メニューバーのアイコンを出さない")
-    a = ap.parse_args()
+    a, _ = ap.parse_known_args()  # macOS may pass -psn_… to apps
     setup_logging()
+    guard = acquire_single_instance()
+    if guard is None:
+        log.info("another recorder is already running; exiting")
+        if in_app_bundle():
+            tell_already_running()
+        return  # exit 0: launchd's KeepAlive (restart only on failure) leaves it stopped
     Daemon().run(menubar=False if a.no_menubar else None)
 
 

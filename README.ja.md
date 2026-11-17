@@ -92,7 +92,21 @@ MIDI 機器が1台だけなら、設定は要りません（自動で選びま�
 
 > Bluetooth MIDI は、Mac の再起動後やピアノの電源を入れ直したあとに、自動では再接続されないことがあります。その場合は「Bluetooth設定」で「接続」を押し直してください。接続が戻れば、デーモンは自動で拾い直します。
 
-### 3. 録音デーモンを launchd に登録
+### 3. 録音デーモンを起動する
+
+次の2つの方法から選びます。録音デーモンは同時に1つしか動きません。すでに動いているときに別の方法で起動しても、何もせずに終わります（アプリの場合はその旨を表示します）。
+
+#### A. PianoTalk Recorder.app（録音したいときに起動する）
+
+```bash
+./scripts/build-recorder-app.sh
+```
+
+この Mac の上でアプリをビルドし（1〜2分）、確認してから `/Applications`（書き込めなければ `~/Applications`）に置きます。弾く前に Launchpad や Spotlight から **PianoTalk Recorder** を開くと、メニューバーに鍵盤のアイコンが出ます。止めるときはメニューの「終了」を選ぶか、そのままログアウトしてください。録音中のテイクは保存してから終了します。バックグラウンドに常駐するものはありません。
+
+アプリはこの Mac の上でビルドし、ad-hoc 署名しているので、Gatekeeper に止められず、Apple の開発者アカウントも要りません。更新するときは、リポジトリを pull してからスクリプトをもう一度実行します。
+
+#### B. launchd（ログイン時から常に動かす）
 
 ```bash
 ./launchd/install.sh
@@ -220,6 +234,8 @@ pianotalk/player.py    メニューからの聴き返し（.mid をピアノで�
 pianotalk/server.py    MCPサーバー
 pianotalk/devtools.py  仮想ピアノ、モニター
 launchd/install.sh     launchd 登録・解除
+app/                   PianoTalk Recorder.app の py2app 設定
+scripts/build-recorder-app.sh  PianoTalk Recorder.app をビルドして置く
 mcpb/                  Claude デスクトップ拡張機能のマニフェストと起動スクリプト
 scripts/build-mcpb.py  dist/pianotalk-<バージョン>.mcpb を作る
 tests/                 ユニットテスト、仮想ポートの結合テスト

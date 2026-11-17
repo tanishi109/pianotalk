@@ -36,6 +36,7 @@ from AppKit import (
     NSMenu,
     NSMenuItem,
     NSStatusBar,
+    NSTerminateLater,
     NSVariableStatusItemLength,
     NSWorkspace,
 )
@@ -79,7 +80,8 @@ def _symbol(name: str, desc: str):
     return img
 
 
-class _Target(NSObject, protocols=[objc.protocolNamed("NSMenuDelegate")]):
+class _Target(NSObject, protocols=[objc.protocolNamed("NSMenuDelegate"),
+                                   objc.protocolNamed("NSApplicationDelegate")]):
     """Objective-C target for the timer and menu actions."""
 
     def initWithUI_(self, ui):
@@ -134,13 +136,23 @@ class _Target(NSObject, protocols=[objc.protocolNamed("NSMenuDelegate")]):
         log.info("quit requested from menu bar")
         self.ui.daemon.running = False
 
+    def applicationShouldTerminate_(self, _app):
+        # Quit from outside (⌘Q via AppleScript, logout, shutdown): finish the
+        # current take first, then let AppKit terminate (see MenuBar.tick).
+        log.info("quit requested by the system")
+        self.ui.terminate_requested = True
+        self.ui.daemon.running = False
+        return NSTerminateLater
+
 
 class MenuBar:
     def __init__(self, daemon) -> None:
         self.daemon = daemon
         self.app = NSApplication.sharedApplication()
+        self.terminate_requested = False
         self.app.setActivationPolicy_(NSApplicationActivationPolicyAccessory)  # no Dock icon
         self.target = _Target.alloc().initWithUI_(self)
+        self.app.setDelegate_(self.target)
         self.item = NSStatusBar.systemStatusBar().statusItemWithLength_(NSVariableStatusItemLength)
         self.item.setAutosaveName_("PianoTalkRecorder")
         self.item.button().setImagePosition_(NSImageLeft)
@@ -342,9 +354,19 @@ class MenuBar:
     def tick(self) -> None:
         try:
             self.daemon.step()
-            if not self.daemon.running:
-                self._stop()
+        except Exception:
+            log.exception("error in main loop")
+        # checked even when step() failed, so a recurring error can't block quitting
+        if not self.daemon.running:
+            if self.terminate_requested:
+                self.timer.invalidate()
+                NSStatusBar.systemStatusBar().removeStatusItem_(self.item)
+                self.daemon.shutdown()
+                self.app.replyToApplicationShouldTerminate_(True)  # AppKit exits the process
                 return
+            self._stop()
+            return
+        try:
             self.refresh()
             if self.daemon.interval() != self.timer_interval:
                 self._schedule(self.daemon.interval())

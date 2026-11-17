@@ -23,7 +23,8 @@ STALE = 60.0  # no update for this long: the recorder is hung or gone
 
 START_HINT = (
     "メニューバーにピアノのアイコンが出ていなければ止まっています。"
-    "launchd に登録済みなら `launchctl kickstart gui/$(id -u)/com.pianotalk.recorder` で起動できます。"
+    "PianoTalk Recorder アプリを使っているなら、Launchpad や Spotlight から開けば録音が始まります。"
+    "launchd で動かしているなら `launchctl kickstart gui/$(id -u)/com.pianotalk.recorder` で起動できます。"
     "まだセットアップしていなければ README の手順（https://github.com/tanishi109/pianotalk#setup）を案内してください。"
 )
 
@@ -32,7 +33,7 @@ def write(state: dict) -> None:
     p = config.recorder_status_path()
     p.parent.mkdir(parents=True, exist_ok=True)
     tmp = p.with_suffix(".tmp")
-    tmp.write_text(json.dumps({"pid": os.getpid(), "updated": time.time(), **state}, ensure_ascii=False))
+    tmp.write_text(json.dumps({"pid": os.getpid(), "updated": time.time(), **state}, ensure_ascii=False), encoding="utf-8")
     tmp.replace(p)
 
 
@@ -40,7 +41,7 @@ def clear() -> None:
     """Remove the file on a clean exit (only if it is still ours)."""
     p = config.recorder_status_path()
     try:
-        if json.loads(p.read_text()).get("pid") == os.getpid():
+        if json.loads(p.read_text(encoding="utf-8")).get("pid") == os.getpid():
             p.unlink()
     except (OSError, ValueError):
         pass
@@ -48,7 +49,7 @@ def clear() -> None:
 
 def read() -> dict | None:
     try:
-        return json.loads(config.recorder_status_path().read_text())
+        return json.loads(config.recorder_status_path().read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
 

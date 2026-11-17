@@ -261,3 +261,14 @@ def test_presence_follows_daemon(daemon, home):
     daemon.wait(5)
     assert presence.read() is None and "動いていない" in presence.warning()
     out.close_port()
+
+
+def test_second_recorder_exits(daemon, home):
+    """Only one recorder per PianoTalk home, or every take would be saved twice."""
+    second = subprocess.run([sys.executable, "-m", "pianotalk.daemon", "--no-menubar"], cwd=ROOT,
+                            env={**os.environ, "PIANOTALK_HOME": str(home)},
+                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=20)
+    assert second.returncode == 0
+    assert "another recorder is already running" in log_text(home)
+    assert daemon.poll() is None  # the first one keeps running
+    assert (home / "recorder.lock").read_text() == str(daemon.pid)

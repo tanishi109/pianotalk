@@ -24,7 +24,7 @@ def _write(since: float, until: float) -> None:
     p = config.lock_path()
     p.parent.mkdir(parents=True, exist_ok=True)
     tmp = p.with_suffix(".tmp")
-    tmp.write_text(json.dumps({"pid": os.getpid(), "since": since, "until": until}))
+    tmp.write_text(json.dumps({"pid": os.getpid(), "since": since, "until": until}), encoding="utf-8")
     tmp.replace(p)
 
 
@@ -69,7 +69,7 @@ class LockWatcher:
         if m != self._mtime:
             self._mtime = m
             try:
-                self._data = json.loads(p.read_text())
+                self._data = json.loads(p.read_text(encoding="utf-8"))
             except (OSError, ValueError):
                 self._data = None
         d = self._data

@@ -93,7 +93,21 @@ With only one MIDI device connected, no configuration is needed: PianoTalk picks
 
 > Bluetooth MIDI sometimes does not reconnect by itself after the Mac restarts or the piano is switched off and on. If that happens, click "Connect" again in Bluetooth settings. Once the connection is back, the daemon picks it up automatically.
 
-### 3. Register the recorder daemon with launchd
+### 3. Start the recorder
+
+Choose one of the two ways below. Only one recorder runs at a time: if one is already running, starting another does nothing (the app says so).
+
+#### A. PianoTalk Recorder.app (start it when you want to record)
+
+```bash
+./scripts/build-recorder-app.sh
+```
+
+This builds the app on your Mac (1–2 minutes) and, after asking, puts it in `/Applications` (or `~/Applications`). Open **PianoTalk Recorder** from Launchpad or Spotlight before you play; the piano-keys icon appears in the menu bar. Choose 終了 (Quit) from that menu, or just log out, to stop it; a take in progress is saved first. Nothing keeps running in the background.
+
+The app is built and signed (ad hoc) on your own Mac, so Gatekeeper doesn't block it and no Apple developer account is involved. To update it, pull the repository and run the script again.
+
+#### B. launchd (always running from login)
 
 ```bash
 ./launchd/install.sh
@@ -223,6 +237,8 @@ pianotalk/player.py    listening back from the menu (plays a .mid on the piano)
 pianotalk/server.py    MCP server
 pianotalk/devtools.py  fake piano and monitor
 launchd/install.sh     launchd install/uninstall
+app/                   py2app setup for PianoTalk Recorder.app
+scripts/build-recorder-app.sh  builds and installs PianoTalk Recorder.app
 mcpb/                  Claude desktop extension manifest and entry point
 scripts/build-mcpb.py  builds dist/pianotalk-<version>.mcpb
 tests/                 unit tests and virtual-port integration tests
