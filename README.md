@@ -67,7 +67,7 @@ curl -LsSf https://astral.sh/uv/install.sh | env UV_NO_MODIFY_PATH=1 sh
 ```
 
 ```bash
-git clone <このリポジトリのURL> pianotalk
+git clone https://github.com/tanishi109/pianotalk.git
 ```
 
 ```bash
