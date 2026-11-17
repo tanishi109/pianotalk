@@ -153,8 +153,6 @@ To build the extension yourself instead:
 
 This writes `dist/pianotalk-<version>.mcpb`.
 
-> **Upgrading from an older version?** If you registered PianoTalk in `claude_desktop_config.json` before (with `register-desktop-mcp.sh` or by hand), remove that entry so the tools don't appear twice. Run `./scripts/register-desktop-mcp.sh --remove --detach`, then quit the Claude app with ⌘Q within 10 minutes; it relaunches without the old entry.
-
 ### 5. Register with Claude Code
 
 Register it at user scope so every project can use it. Run this from the `pianotalk` folder:

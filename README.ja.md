@@ -150,8 +150,6 @@ MIDI 機器が1台だけなら、設定は要りません（自動で選びま�
 .venv/bin/python scripts/build-mcpb.py
 ```
 
-> **以前の版から移行する場合**：`claude_desktop_config.json` に PianoTalk を登録していた場合（`register-desktop-mcp.sh` や手作業で）、ツールが2組並ばないように古い登録を外してください。`./scripts/register-desktop-mcp.sh --remove --detach` を実行し、10分以内に Claude アプリを ⌘Q で終了すると、古い登録を外してアプリが起動し直します。
-
 ### 5. Claude Code に登録
 
 全プロジェクトから使えるよう、user スコープで登録します。`pianotalk` フォルダで実行してください。
