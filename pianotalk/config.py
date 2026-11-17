@@ -14,7 +14,8 @@ from pathlib import Path
 DEFAULT_CONFIG_TOML = """\
 # PianoTalk 設定ファイル
 # 変更後は録音デーモンを再起動してください:
-#   launchctl kickstart -k gui/$(id -u)/com.pianotalk.recorder
+#   PianoTalk Recorder アプリ: メニューバーのアイコン →「終了」のあと、開き直す
+#   launchd で動かしている場合: launchctl kickstart -k gui/$(id -u)/com.pianotalk.recorder
 # MCPサーバーは Claude 側で再接続（アプリ再起動）すると反映されます。
 
 [midi]

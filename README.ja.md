@@ -4,9 +4,11 @@
 
 [English](README.md) | 日本語
 
-電子ピアノ（Bluetooth MIDI）の演奏を自動で録音し、Claude が会話の中で録音を読んだり、フレーズをピアノで鳴らしたりできるようにするツールです。演奏へのフィードバック、楽典的な分析、続きのフレーズ提案などに使います。
+電子ピアノ（Bluetooth MIDI）の演奏を、録音ボタンを押さなくても録音し、Claude が会話の中で録音を読んだり、フレーズをピアノで鳴らしたりできるようにするツールです。演奏へのフィードバック、楽典的な分析、続きのフレーズ提案などに使います。
 
-- **動作環境**：macOS（CoreMIDI と launchd を使います）、Python 3.12 以上（uv が自動で入れます）、Claude デスクトップアプリまたは Claude Code
+録音されるのは、PianoTalk の録音デーモンが動いている間です。弾く前に PianoTalk Recorder アプリを開くか、launchd でログイン時から動かしておきます。演奏が止まって数秒たつと、1テイクとして保存されます。
+
+- **動作環境**：macOS（CoreMIDI を使います）、Python 3.12 以上（uv が自動で入れます）、Claude デスクトップアプリまたは Claude Code
 - **ピアノ**：MIDI 入出力のある電子ピアノ（Bluetooth MIDI / USB MIDI）。動作を確認した機種は Kawai CN201（Bluetooth MIDI）です。他の機種で動いた・動かなかったという報告を歓迎します。
 - **プライバシー**：録音はこの Mac の `~/PianoTalk/` にだけ保存されます。Claude に渡るのは、会話の中で Claude がツールを呼んだときに返すテキスト（音名・タイミングなど）だけです。
 - PianoTalk は個人が作った非公式のツールです。Anthropic、河合楽器製作所とは関係ありません。
@@ -15,7 +17,7 @@
 
 | プログラム | 役割 |
 |---|---|
-| **録音デーモン** `pianotalk-recorder` | launchd でログイン時に起動して常駐し、ピアノの演奏を自動で録音する |
+| **録音デーモン** `pianotalk-recorder` | 動いている間、ピアノの演奏を録音する。ふだんは PianoTalk Recorder.app を開いて起動する。launchd でログイン時から動かしておくこともできる |
 | **MCPサーバー** `pianotalk-mcp` | stdio で動く。Claude デスクトップには拡張機能（.mcpb）として入れる。Claude Code にも登録できる |
 
 ```
@@ -41,7 +43,7 @@
 - **削除の方式**：削除はすべて macOS のゴミ箱へ移す方式です。Finder の「戻す」で復元できます。
 - **一時停止中・再生中の扱い**：一時停止中や再生中も、キーとペダルの押下状態だけは追い続けます。その間にキーを離しても、録音が終わらなくなることはありません。
 - **録音されていないときは Claude に伝える**：録音デーモンが止まっている、一時停止中、ピアノが未接続のときは、`list_recordings` と `get_recording` の結果の冒頭にその旨の注意が付きます。Claude は古い録音を黙って読む代わりに、それをユーザーに伝えます。
-- **App Nap 対策**：`NSProcessInfo.beginActivity` で App Nap を止めています（アイドル時のスリープは妨げません）。launchd でも `ProcessType=Interactive` を指定しています。
+- **App Nap 対策**：`NSProcessInfo.beginActivity` で App Nap を止めています（アイドル時のスリープは妨げません）。launchd で動かす場合は `ProcessType=Interactive` も指定しています。
 
 ## MCPツール
 
@@ -154,7 +156,7 @@ MIDI 機器が1台だけなら、設定は要りません（自動で選びま�
 - もっと古いファイルは「録音フォルダを開く」から探してください。
 
 - アイコンが見当たらないときは、「システム設定 → メニューバー」で項目が非表示になっていないか確認してください（アプリの場合は「PianoTalk Recorder」、launchd で動かしている場合は「python3.12」という名前で並びます）。
-- アイコンが要らない場合は、`config.toml` の `[ui] menubar = false` にして再起動します。
+- アイコンが要らない場合は、`config.toml` の `[ui] menubar = false` にして再起動します（launchd の場合だけです。アプリは、終了できるように常にアイコンを出します）。
 
 ### 4. Claude デスクトップに拡張機能をインストール
 
@@ -176,7 +178,16 @@ MIDI 機器が1台だけなら、設定は要りません（自動で選びま�
 claude mcp add --scope user pianotalk -- "$(pwd)/.venv/bin/pianotalk-mcp"
 ```
 
-`claude` コマンドがない場合は、`~/.claude.json` の最上位にある `"mcpServers"` に、デスクトップ用と同じ内容（`"type": "stdio"` を付ける）を追加しても登録できます。登録できたかは、新しいセッションで `/mcp` を開いて確認します。
+`claude` コマンドがない場合は、`~/.claude.json` の最上位にある `"mcpServers"` に次の内容を追加しても登録できます。`/path/to/pianotalk` は、clone したフォルダの絶対パス（`pwd` で表示されるもの）に置き換えます。
+
+```json
+"pianotalk": {
+  "type": "stdio",
+  "command": "/path/to/pianotalk/.venv/bin/pianotalk-mcp"
+}
+```
+
+登録できたかは、新しいセッションで `/mcp` を開いて確認します。
 
 ## ピアノなしで試す（仮想MIDIポート）
 
@@ -187,15 +198,17 @@ CoreMIDI の仮想ポートを実際に作って、次の点を確かめます�
 - 録音、短い録音の破棄、ペダル中は録音が終わらないこと
 - 他のアプリとのポート共有、後からポートが現れたときの再接続
 - `play_notes` の送信、エコーを録音しないこと
-- 全MCPツールの動作
+- 全MCPツールの動作（録音されていないときの注意を含む）
+- 録音デーモンが同時に1つしか動かないこと
+- `.mcpb` の中身
 
 ```bash
-uv run pytest -v
+~/.local/bin/uv run pytest -v
 ```
 
 ### 手動で通しで試す
 
-1. `~/PianoTalk/config.toml` を次のように一時的に書き換え、デーモンを再起動します（`launchctl kickstart -k ...`。未登録なら `.venv/bin/pianotalk-recorder` を別ターミナルで起動）。
+1. `~/PianoTalk/config.toml` を次のように一時的に書き換え、録音デーモンを再起動します（アプリならメニューの「終了」のあと開き直す。launchd なら `launchctl kickstart -k ...`。どちらも使っていなければ `.venv/bin/pianotalk-recorder` を別ターミナルで起動）。
    ```toml
    input_port = "PianoTalk Fake Piano"
    output_port = "PianoTalk Monitor"
@@ -205,7 +218,7 @@ uv run pytest -v
    .venv/bin/pianotalk-fake-piano --repeat 2
    ```
 3. 別のターミナルで `.venv/bin/pianotalk-monitor` を起動したまま、Claude に「さっきの演奏を読んで、続きを弾いて」と頼みます。`play_notes` が送ったノートがモニターに表示されます。
-4. 試し終わったら、`input_port` と `output_port` を元の値（自動選択なら `""`）に戻して、デーモンを再起動します。
+4. 試し終わったら、`input_port` と `output_port` を元の値（自動選択なら `""`）に戻して、録音デーモンを再起動します。
 
 ## 設定（`~/PianoTalk/config.toml`）
 

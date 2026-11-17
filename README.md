@@ -4,9 +4,11 @@
 
 English | [日本語](README.ja.md)
 
-PianoTalk records everything you play on your digital piano, automatically, and lets Claude read those recordings and play phrases back on the piano during a conversation. Use it for feedback on your playing, music-theory analysis, or asking Claude to continue a phrase you started.
+PianoTalk records what you play on your digital piano, without you pressing record, and lets Claude read those recordings and play phrases back on the piano during a conversation. Use it for feedback on your playing, music-theory analysis, or asking Claude to continue a phrase you started.
 
-- **Requirements**: macOS (uses CoreMIDI and launchd), Python 3.12+ (installed for you by uv), and the Claude desktop app or Claude Code.
+Recording happens while the PianoTalk recorder is running: open the PianoTalk Recorder app before you play, or have launchd keep it running from login. Each take is saved a few seconds after you stop playing.
+
+- **Requirements**: macOS (uses CoreMIDI), Python 3.12+ (installed for you by uv), and the Claude desktop app or Claude Code.
 - **Piano**: any digital piano with MIDI in/out (Bluetooth MIDI or USB MIDI). Tested on a Kawai CN201 over Bluetooth MIDI. Reports from other models, working or not, are welcome.
 - **Privacy**: recordings are stored only on your Mac, in `~/PianoTalk/`. The only thing Claude receives is the text a tool returns (note names, timing, and so on) when Claude calls it during a conversation.
 - **Language**: the menu bar and the tool messages are currently in Japanese. Claude reads them without trouble and answers in your language, but the menu items will look unfamiliar. This README gives an English gloss for each one.
@@ -16,7 +18,7 @@ It consists of two programs:
 
 | Program | Role |
 |---|---|
-| **Recorder daemon** `pianotalk-recorder` | Started by launchd at login and stays running, recording your playing automatically |
+| **Recorder** `pianotalk-recorder` | Records your playing while it runs. Usually started by opening PianoTalk Recorder.app; can also be kept running from login by launchd |
 | **MCP server** `pianotalk-mcp` | Runs over stdio. Installed in the Claude desktop app as an extension (.mcpb); can also be registered with Claude Code |
 
 ```
@@ -42,7 +44,7 @@ It consists of two programs:
 - **Deletion**: every deletion moves files to the macOS Trash, so you can restore them with Finder's "Put Back".
 - **While paused or playing back**: the daemon still tracks which keys and pedals are down, so releasing them during that time never leaves a take stuck open.
 - **Tells Claude when nothing is being recorded**: if the recorder isn't running, is paused, or has no piano connected, `list_recordings` and `get_recording` start with a note saying so, and Claude passes it on to you instead of quietly reading old takes.
-- **App Nap**: App Nap is disabled with `NSProcessInfo.beginActivity` (idle sleep is not prevented), and the launchd job uses `ProcessType=Interactive`.
+- **App Nap**: App Nap is disabled with `NSProcessInfo.beginActivity` (idle sleep is not prevented), and when run from launchd the job uses `ProcessType=Interactive`.
 
 ## MCP tools
 
@@ -155,7 +157,7 @@ The menu's ピアノで聴き返す ▸ (Play back on piano) submenu lists your 
 - For older files, use 録音フォルダを開く (Open recordings folder).
 
 - If you can't find the icon, check that it isn't hidden in System Settings → Menu Bar (it is listed as "PianoTalk Recorder" for the app, and as "python3.12" when the recorder runs from launchd).
-- To turn the icon off, set `[ui] menubar = false` in `config.toml` and restart the daemon.
+- To turn the icon off, set `[ui] menubar = false` in `config.toml` and restart the recorder (launchd only; the app always shows its icon so you can quit it).
 
 ### 4. Install the Claude desktop extension
 
@@ -179,7 +181,16 @@ Register it at user scope so every project can use it. Run this from the `pianot
 claude mcp add --scope user pianotalk -- "$(pwd)/.venv/bin/pianotalk-mcp"
 ```
 
-Without the `claude` command, you can instead add the same entry as for the desktop app (plus `"type": "stdio"`) to the top-level `"mcpServers"` in `~/.claude.json`. To check that it worked, open `/mcp` in a new session.
+Without the `claude` command, you can instead add this entry to the top-level `"mcpServers"` in `~/.claude.json`, replacing `/path/to/pianotalk` with the absolute path of your clone (what `pwd` prints):
+
+```json
+"pianotalk": {
+  "type": "stdio",
+  "command": "/path/to/pianotalk/.venv/bin/pianotalk-mcp"
+}
+```
+ 
+To check that it worked, open `/mcp` in a new session.
 
 ## Trying it without a piano (virtual MIDI ports)
 
@@ -190,15 +201,17 @@ The tests create real CoreMIDI virtual ports and check:
 - recording, discarding short takes, and that a held pedal keeps a take open
 - sharing a port with another app, and reconnecting when a port appears later
 - sending `play_notes`, and that the echo isn't recorded
-- every MCP tool
+- every MCP tool, including the note added when nothing is being recorded
+- that only one recorder runs at a time
+- the contents of the `.mcpb` bundle
 
 ```bash
-uv run pytest -v
+~/.local/bin/uv run pytest -v
 ```
 
 ### Manual end-to-end run
 
-1. Temporarily change `~/PianoTalk/config.toml` as below and restart the daemon (`launchctl kickstart -k ...`, or if it isn't registered, run `.venv/bin/pianotalk-recorder` in another terminal).
+1. Temporarily change `~/PianoTalk/config.toml` as below and restart the recorder (quit PianoTalk Recorder from its menu and open it again; with launchd, `launchctl kickstart -k ...`; or run `.venv/bin/pianotalk-recorder` in another terminal).
    ```toml
    input_port = "PianoTalk Fake Piano"
    output_port = "PianoTalk Monitor"
@@ -208,7 +221,7 @@ uv run pytest -v
    .venv/bin/pianotalk-fake-piano --repeat 2
    ```
 3. Keep `.venv/bin/pianotalk-monitor` running in another terminal and ask Claude to "read what I just played and continue it". The monitor prints the notes `play_notes` sends.
-4. When you're done, set `input_port` and `output_port` back to their previous values (`""` for automatic) and restart the daemon.
+4. When you're done, set `input_port` and `output_port` back to their previous values (`""` for automatic) and restart the recorder.
 
 ## Settings (`~/PianoTalk/config.toml`)
 

@@ -22,7 +22,7 @@ from .midiutil import analyze, format_recording, note_name, parse_note, write_mi
 log = logging.getLogger("pianotalk.mcp")
 
 INSTRUCTIONS = """\
-ユーザーの電子ピアノ演奏は自動で録音されています（演奏が止まって数秒後に1テイクとして保存）。
+ユーザーの電子ピアノ演奏は、録音デーモン（PianoTalk Recorder）が動いている間、自動で録音されます（演奏が止まって数秒後に1テイクとして保存）。
 - 演奏について話すときは list_recordings / get_recording(id="latest") で録音を読んでください。
 - 音名は C4 = 中央のド（MIDI 60）。シャープは #、フラットは b（例: F#3, Bb4）。
   録音の音名は常にシャープ表記なので、調に合わせて読み替えてください（A# = B♭）。

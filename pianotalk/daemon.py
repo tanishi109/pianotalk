@@ -470,7 +470,11 @@ def main() -> None:
         if in_app_bundle():
             tell_already_running()
         return  # exit 0: launchd's KeepAlive (restart only on failure) leaves it stopped
-    Daemon().run(menubar=False if a.no_menubar else None)
+    if in_app_bundle():
+        menubar = True  # the icon is the app's only UI (and only way to quit it)
+    else:
+        menubar = False if a.no_menubar else None  # None: follow [ui] menubar
+    Daemon().run(menubar=menubar)
 
 
 def list_ports() -> None:
