@@ -14,7 +14,7 @@
 | プログラム | 役割 |
 |---|---|
 | **録音デーモン** `pianotalk-recorder` | launchd でログイン時に起動して常駐し、ピアノの演奏を自動で録音する |
-| **MCPサーバー** `pianotalk-mcp` | stdio で動く。Claude デスクトップと Claude Code から使う |
+| **MCPサーバー** `pianotalk-mcp` | stdio で動く。Claude デスクトップには拡張機能（.mcpb）として入れる。Claude Code にも登録できる |
 
 ```
 ~/PianoTalk/
@@ -138,27 +138,19 @@ MIDI 機器が1台だけなら、設定は要りません（自動で選びま�
 - アイコンが見当たらないときは、「システム設定 → メニューバー」で項目が非表示になっていないか確認してください（項目名は Python と表示されることがあります）。
 - アイコンが要らない場合は、`config.toml` の `[ui] menubar = false` にして再起動します。
 
-### 4. Claude デスクトップアプリに登録
+### 4. Claude デスクトップに拡張機能をインストール
 
-起動中のアプリは設定をメモリに持っていて、`claude_desktop_config.json` を書き戻します。そのため、アプリが動いている間にファイルを書き換えても、いずれ消されてしまいます。次のスクリプトを使うと、アプリの終了を待ってから追記し、起動し直してくれます。
+[最新のリリース](https://github.com/tanishi109/pianotalk/releases/latest)から `pianotalk-<バージョン>.mcpb` をダウンロードし、ダブルクリックします（「設定 → 拡張機能 → 詳細設定 → 拡張機能をインストール…」からでも入れられます）。Python と依存パッケージは Claude デスクトップが用意します。Mac に uv がなければ、それも自動でダウンロードします。
+
+インストール画面に「すべてのデータへのアクセス権が付与されます」「開発者情報は Anthropic によって検証されていません」という警告が出ます。これはファイルから入れる拡張機能すべてに出る表示です。PianoTalk が読み書きするのは `~/PianoTalk/` と MIDI 機器だけで、ソースはこのリポジトリで確認できます。
+
+自分でビルドする場合は次のコマンドを実行します。`dist/pianotalk-<バージョン>.mcpb` ができます。
 
 ```bash
-./scripts/register-desktop-mcp.sh --detach
+.venv/bin/python scripts/build-mcpb.py
 ```
 
-実行したら、10分以内に Claude アプリを ⌘Q で終了してください。数秒後にアプリが起動し直し、チャットから pianotalk のツールが使えるようになります。ログは `~/PianoTalk/logs/register-desktop-mcp.log` に出ます。
-
-手で書く場合は、**アプリを終了してから** 次の内容を追記してください。`/path/to/pianotalk` は、clone したフォルダの絶対パス（`pwd` で表示されるもの）に置き換えます。
-
-```json
-{
-  "mcpServers": {
-    "pianotalk": {
-      "command": "/path/to/pianotalk/.venv/bin/pianotalk-mcp"
-    }
-  }
-}
-```
+> **以前の版から移行する場合**：`claude_desktop_config.json` に PianoTalk を登録していた場合（`register-desktop-mcp.sh` や手作業で）、ツールが2組並ばないように古い登録を外してください。`./scripts/register-desktop-mcp.sh --remove --detach` を実行し、10分以内に Claude アプリを ⌘Q で終了すると、古い登録を外してアプリが起動し直します。
 
 ### 5. Claude Code に登録
 
@@ -227,6 +219,8 @@ pianotalk/player.py    メニューからの聴き返し（.mid をピアノで�
 pianotalk/server.py    MCPサーバー
 pianotalk/devtools.py  仮想ピアノ、モニター
 launchd/install.sh     launchd 登録・解除
+mcpb/                  Claude デスクトップ拡張機能のマニフェストと起動スクリプト
+scripts/build-mcpb.py  dist/pianotalk-<バージョン>.mcpb を作る
 tests/                 ユニットテスト、仮想ポートの結合テスト
 ```
 

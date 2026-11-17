@@ -1,12 +1,17 @@
 {
   "manifest_version": "0.4",
-  "name": "pianotalk-spike",
-  "display_name": "PianoTalk (spike)",
-  "version": "0.1.0",
-  "description": "Read your digital piano recordings and play phrases back on the piano.",
-  "author": { "name": "tanishi109" },
+  "name": "pianotalk",
+  "display_name": "PianoTalk",
+  "version": "0.2.0",
+  "description": "Let Claude read what you played on your digital piano and play phrases back on it.",
+  "long_description": "PianoTalk lets Claude read the takes recorded from your MIDI piano (notes, chords, timing, pedals) and play phrases back on the piano. Recording is done by the PianoTalk recorder, which you set up separately; see the README. macOS only.",
+  "author": { "name": "tanishi109", "url": "https://github.com/tanishi109" },
+  "homepage": "https://github.com/tanishi109/pianotalk",
+  "documentation": "https://github.com/tanishi109/pianotalk#readme",
+  "support": "https://github.com/tanishi109/pianotalk/issues",
   "repository": { "type": "git", "url": "https://github.com/tanishi109/pianotalk" },
   "license": "MIT",
+  "keywords": ["piano", "midi", "music", "practice"],
   "server": {
     "type": "uv",
     "entry_point": "mcpb_main.py",
@@ -16,10 +21,10 @@
     }
   },
   "tools": [
-    { "name": "list_recordings", "description": "List recent piano recordings" },
-    { "name": "get_recording", "description": "Read a recording as text" },
-    { "name": "play_notes", "description": "Play a phrase on the piano" },
-    { "name": "keep_recording", "description": "Keep a recording from auto-deletion" },
+    { "name": "list_recordings", "description": "List recordings, newest first (date, length, note count, range, kept flag)" },
+    { "name": "get_recording", "description": "Read a recording as text: notes and chords in time order, with timing, velocity and pedals" },
+    { "name": "play_notes", "description": "Play a phrase on the piano and save it as a .mid file" },
+    { "name": "keep_recording", "description": "Keep a recording so it is never auto-deleted" },
     { "name": "delete_recording", "description": "Move a recording to the Trash" }
   ],
   "compatibility": {

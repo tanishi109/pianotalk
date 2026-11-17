@@ -15,7 +15,7 @@ It consists of two programs:
 | Program | Role |
 |---|---|
 | **Recorder daemon** `pianotalk-recorder` | Started by launchd at login and stays running, recording your playing automatically |
-| **MCP server** `pianotalk-mcp` | Runs over stdio; used from the Claude desktop app and Claude Code |
+| **MCP server** `pianotalk-mcp` | Runs over stdio. Installed in the Claude desktop app as an extension (.mcpb); can also be registered with Claude Code |
 
 ```
 ~/PianoTalk/
@@ -139,27 +139,21 @@ The menu's ピアノで聴き返す ▸ (Play back on piano) submenu lists your 
 - If you can't find the icon, check that it isn't hidden in System Settings → Menu Bar (the item may be listed as "Python").
 - To turn the icon off, set `[ui] menubar = false` in `config.toml` and restart the daemon.
 
-### 4. Register with the Claude desktop app
+### 4. Install the Claude desktop extension
 
-While the app is running it keeps its settings in memory and writes `claude_desktop_config.json` back out, so edits made while it runs eventually get overwritten. This script waits for the app to quit, adds the entry, and relaunches the app:
+Download `pianotalk-<version>.mcpb` from the [latest release](https://github.com/tanishi109/pianotalk/releases/latest) and double-click it (or use Settings → Extensions → Advanced settings → Install Extension…). Claude desktop sets up Python and the dependencies itself; if your Mac has no uv, it downloads one.
+
+The install screen warns that the extension gets access to your data and that the developer is not verified by Anthropic. Claude desktop shows this for every extension installed from a file. PianoTalk only reads and writes `~/PianoTalk/` and talks to your MIDI devices; the source is in this repository.
+
+To build the extension yourself instead:
 
 ```bash
-./scripts/register-desktop-mcp.sh --detach
+.venv/bin/python scripts/build-mcpb.py
 ```
 
-After running it, quit the Claude app with ⌘Q within 10 minutes. A few seconds later the app relaunches and the pianotalk tools are available in chat. The script logs to `~/PianoTalk/logs/register-desktop-mcp.log`.
+This writes `dist/pianotalk-<version>.mcpb`.
 
-To edit the file by hand, **quit the app first**, then add the entry below. Replace `/path/to/pianotalk` with the absolute path of your clone (what `pwd` prints).
-
-```json
-{
-  "mcpServers": {
-    "pianotalk": {
-      "command": "/path/to/pianotalk/.venv/bin/pianotalk-mcp"
-    }
-  }
-}
-```
+> **Upgrading from an older version?** If you registered PianoTalk in `claude_desktop_config.json` before (with `register-desktop-mcp.sh` or by hand), remove that entry so the tools don't appear twice. Run `./scripts/register-desktop-mcp.sh --remove --detach`, then quit the Claude app with ⌘Q within 10 minutes; it relaunches without the old entry.
 
 ### 5. Register with Claude Code
 
@@ -228,6 +222,8 @@ pianotalk/player.py    listening back from the menu (plays a .mid on the piano)
 pianotalk/server.py    MCP server
 pianotalk/devtools.py  fake piano and monitor
 launchd/install.sh     launchd install/uninstall
+mcpb/                  Claude desktop extension manifest and entry point
+scripts/build-mcpb.py  builds dist/pianotalk-<version>.mcpb
 tests/                 unit tests and virtual-port integration tests
 ```
 
