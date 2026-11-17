@@ -17,7 +17,7 @@ TOP_FILES = ["pyproject.toml", "uv.lock", ".python-version", "README.md", "LICEN
 
 
 def bundle_files() -> list[tuple[Path, str]]:
-    files = [(ROOT / "mcpb" / n, n) for n in ("manifest.json", "mcpb_main.py")]
+    files = [(ROOT / "mcpb" / n, n) for n in ("manifest.json", "mcpb_main.py", "icon.png")]
     files += [(ROOT / n, n) for n in TOP_FILES]
     files += [(p, p.relative_to(ROOT).as_posix()) for p in sorted((ROOT / "pianotalk").glob("*.py"))]
     return files

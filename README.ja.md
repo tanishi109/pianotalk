@@ -1,5 +1,7 @@
 # PianoTalk
 
+<img src="assets/icon-1024.png" alt="" width="96" align="right">
+
 [English](README.md) | 日本語
 
 電子ピアノ（Bluetooth MIDI）の演奏を自動で録音し、Claude が会話の中で録音を読んだり、フレーズをピアノで鳴らしたりできるようにするツールです。演奏へのフィードバック、楽典的な分析、続きのフレーズ提案などに使います。
@@ -238,6 +240,7 @@ app/                   PianoTalk Recorder.app の py2app 設定
 scripts/build-recorder-app.sh  PianoTalk Recorder.app をビルドして置く
 mcpb/                  Claude デスクトップ拡張機能のマニフェストと起動スクリプト
 scripts/build-mcpb.py  dist/pianotalk-<バージョン>.mcpb を作る
+scripts/make-icon.py   アイコンを描く（assets/、mcpb/icon.png、app/PianoTalk.icns）
 tests/                 ユニットテスト、仮想ポートの結合テスト
 ```
 

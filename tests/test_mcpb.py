@@ -17,7 +17,7 @@ def load_builder():
 def test_bundle_layout_and_manifest(tmp_path):
     out = load_builder().build(tmp_path)
     names = set(zipfile.ZipFile(out).namelist())
-    assert {"manifest.json", "mcpb_main.py", "pyproject.toml", "uv.lock", "pianotalk/server.py"} <= names
+    assert {"manifest.json", "mcpb_main.py", "icon.png", "pyproject.toml", "uv.lock", "pianotalk/server.py"} <= names
     assert not any(n.startswith((".venv", "tests/", "dist/")) or "__pycache__" in n for n in names)
 
     m = json.loads(zipfile.ZipFile(out).read("manifest.json"))

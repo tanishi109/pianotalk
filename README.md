@@ -1,5 +1,7 @@
 # PianoTalk
 
+<img src="assets/icon-1024.png" alt="" width="96" align="right">
+
 English | [日本語](README.ja.md)
 
 PianoTalk records everything you play on your digital piano, automatically, and lets Claude read those recordings and play phrases back on the piano during a conversation. Use it for feedback on your playing, music-theory analysis, or asking Claude to continue a phrase you started.
@@ -241,6 +243,7 @@ app/                   py2app setup for PianoTalk Recorder.app
 scripts/build-recorder-app.sh  builds and installs PianoTalk Recorder.app
 mcpb/                  Claude desktop extension manifest and entry point
 scripts/build-mcpb.py  builds dist/pianotalk-<version>.mcpb
+scripts/make-icon.py   draws the icon (assets/, mcpb/icon.png, app/PianoTalk.icns)
 tests/                 unit tests and virtual-port integration tests
 ```
 

@@ -23,6 +23,7 @@ setup(
     name="PianoTalk Recorder",
     app=["recorder_app.py"],
     options={"py2app": {
+        "iconfile": "PianoTalk.icns",  # drawn by scripts/make-icon.py
         "packages": ["pianotalk", "mido", "rtmidi"],
         "includes": ["AppKit", "Foundation", "objc"],
         "excludes": ["mcp", "pydantic", "anyio", "starlette", "uvicorn", "pytest", "tkinter"],
