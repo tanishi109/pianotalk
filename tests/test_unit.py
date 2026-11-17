@@ -270,6 +270,8 @@ def test_find_port_by_name_and_auto():
     assert config.find_port(names, "  ") == 3
     assert config.find_port(names + ["Digital Piano"], "") is None  # ambiguous
     assert config.find_port(names[:3], "") is None  # no device
+    assert config.find_port([None, "CN201 Bluetooth"], "cn201") == 1  # unnamed port
+    assert config.find_port([None, "CN201 Bluetooth"], "") == 1
     assert config.describe_port("") == "MIDI機器（自動選択）"
     assert config.describe_port("P-125") == "「P-125」"
 

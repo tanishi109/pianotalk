@@ -135,7 +135,9 @@ AUTO_SKIP = ("iac", "network", "session", "pianotalk")
 
 
 def auto_candidates(names: list[str]) -> list[int]:
-    return [i for i, n in enumerate(names) if not any(s in n.casefold() for s in AUTO_SKIP)]
+    # CoreMIDI can report a port with no name (None) while a device is (dis)connecting
+    return [i for i, n in enumerate(names)
+            if n and not any(s in n.casefold() for s in AUTO_SKIP)]
 
 
 def find_port(names: list[str], wanted: str) -> int | None:
@@ -149,7 +151,7 @@ def find_port(names: list[str], wanted: str) -> int | None:
         cands = auto_candidates(names)
         return cands[0] if len(cands) == 1 else None
     for i, n in enumerate(names):
-        if w in n.casefold():
+        if n and w in n.casefold():
             return i
     return None
 
