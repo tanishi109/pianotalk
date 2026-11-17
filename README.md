@@ -152,7 +152,7 @@ The menu's ピアノで聴き返す ▸ (Play back on piano) submenu lists your 
 - The submenu is disabled while the piano is disconnected or while you are recording. If Claude is playing, playback is refused and the menu says why (with an alert sound).
 - For older files, use 録音フォルダを開く (Open recordings folder).
 
-- If you can't find the icon, check that it isn't hidden in System Settings → Menu Bar (the item may be listed as "Python").
+- If you can't find the icon, check that it isn't hidden in System Settings → Menu Bar (it is listed as "PianoTalk Recorder" for the app, and as "python3.12" when the recorder runs from launchd).
 - To turn the icon off, set `[ui] menubar = false` in `config.toml` and restart the daemon.
 
 ### 4. Install the Claude desktop extension
