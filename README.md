@@ -25,6 +25,7 @@ It consists of two programs:
   suggestions/                phrases Claude played
   logs/recorder.log           daemon log
   playing.lock                playback lock (created and expired automatically)
+  recorder.json               recorder status, read by the MCP server (removed when the recorder quits)
 ```
 
 ## How it behaves
@@ -38,6 +39,7 @@ It consists of two programs:
 - **Automatic cleanup**: recordings older than the retention period (30 days by default) are moved to the Trash at startup and every 24 hours after that. Anything in `kept/` is left alone.
 - **Deletion**: every deletion moves files to the macOS Trash, so you can restore them with Finder's "Put Back".
 - **While paused or playing back**: the daemon still tracks which keys and pedals are down, so releasing them during that time never leaves a take stuck open.
+- **Tells Claude when nothing is being recorded**: if the recorder isn't running, is paused, or has no piano connected, `list_recordings` and `get_recording` start with a note saying so, and Claude passes it on to you instead of quietly reading old takes.
 - **App Nap**: App Nap is disabled with `NSProcessInfo.beginActivity` (idle sleep is not prevented), and the launchd job uses `ProcessType=Interactive`.
 
 ## MCP tools
@@ -214,6 +216,7 @@ pianotalk/config.py    settings and paths
 pianotalk/midiutil.py  note names, MIDI writing, analyzing recordings into text
 pianotalk/storage.py   ID lookup, keeping, trash, expiry cleanup
 pianotalk/lock.py      playback lock
+pianotalk/presence.py  recorder status file and the warnings built from it
 pianotalk/daemon.py    recorder daemon (+ pianotalk-ports)
 pianotalk/menubar.py   menu bar icon and menu
 pianotalk/player.py    listening back from the menu (plays a .mid on the piano)

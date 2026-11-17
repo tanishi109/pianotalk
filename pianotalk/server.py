@@ -16,7 +16,7 @@ from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import BaseModel, Field
 
-from . import config, lock, storage
+from . import config, lock, presence, storage
 from .midiutil import analyze, format_recording, note_name, parse_note, write_midi
 
 log = logging.getLogger("pianotalk.mcp")
@@ -34,6 +34,8 @@ INSTRUCTIONS = """\
 - 再生中と再生後約1秒はユーザーの演奏を録音しません。鳴らす前に「今から弾きます」と一言伝え、
   ユーザーに弾いてもらいたいときは再生が終わってからにしてください。
 - 録音は一定期間で自動削除されます。残したいと言われたら keep_recording を使ってください。
+- list_recordings / get_recording の結果が【注意】で始まるときは、いまの演奏が録音されていません
+  （録音デーモンが止まっている、一時停止中、ピアノ未接続など）。その内容をユーザーに伝えてください。
 """
 
 mcp = MCPServer("pianotalk", instructions=INSTRUCTIONS)
@@ -60,6 +62,12 @@ def tool(fn):
     return mcp.tool()(wrapper)
 
 
+def _with_warning(text: str) -> str:
+    """Prefix a tool result with a note when the user's playing is not being recorded."""
+    w = presence.warning()
+    return f"{w}\n\n{text}" if w else text
+
+
 def _summary_line(p) -> str:
     try:
         rec = analyze(p)
@@ -80,12 +88,12 @@ def list_recordings(limit: int = 20) -> str:
     """録音を新しい順に一覧します（ID=ファイル名、日時、長さ、音数、音域、保存印）。"""
     files = storage.all_recordings()
     if not files:
-        return "録音はまだありません。"
+        return _with_warning("録音はまだありません。")
     cfg = config.load()
     lines = [f"録音 {len(files)} 件中 新しい {min(limit, len(files))} 件"
              f"（保存期間 {cfg.retention_days} 日、[保存印] は自動削除されません）:"]
     lines += [_summary_line(p) for p in files[: max(1, limit)]]
-    return "\n".join(lines)
+    return _with_warning("\n".join(lines))
 
 
 @tool
@@ -98,12 +106,15 @@ def get_recording(id: str = "latest", start_sec: float | None = None,
     打鍵が400回を超える録音は、範囲指定がなければ区間ごとの概要（音数・音域・よく出る音）を返します。
     id: "latest" または list_recordings の ID。start_sec/end_sec（秒）で範囲を絞ると、その区間の各音を返します。
     """
-    p = storage.resolve(id)
+    try:
+        p = storage.resolve(id)
+    except FileNotFoundError as e:
+        raise ToolError(_with_warning(str(e))) from e
     rec = analyze(p)
     title = f"{p.stem}（{storage.recorded_at(p):%Y-%m-%d %H:%M:%S}）"
     if storage.is_kept(p):
         title += " [保存印]"
-    return format_recording(rec, title, start_sec, end_sec)
+    return _with_warning(format_recording(rec, title, start_sec, end_sec))
 
 
 class NoteSpec(BaseModel):

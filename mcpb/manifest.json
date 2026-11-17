@@ -2,7 +2,7 @@
   "manifest_version": "0.4",
   "name": "pianotalk",
   "display_name": "PianoTalk",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Let Claude read what you played on your digital piano and play phrases back on it.",
   "long_description": "PianoTalk lets Claude read the takes recorded from your MIDI piano (notes, chords, timing, pedals) and play phrases back on the piano. Recording is done by the PianoTalk recorder, which you set up separately; see the README. macOS only.",
   "author": { "name": "tanishi109", "url": "https://github.com/tanishi109" },

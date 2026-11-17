@@ -24,6 +24,7 @@
   suggestions/                Claude が鳴らしたフレーズ
   logs/recorder.log           デーモンのログ
   playing.lock                再生中ロック（自動で作成・失効）
+  recorder.json               録音デーモンの状態。MCPサーバーが読む（デーモン終了時に消える）
 ```
 
 ## 動作の要点
@@ -37,6 +38,7 @@
 - **自動削除**：保存期間（既定30日）を過ぎた録音を、起動時と以後24時間ごとにゴミ箱へ移します。`kept/` 以下は対象外です。
 - **削除の方式**：削除はすべて macOS のゴミ箱へ移す方式です。Finder の「戻す」で復元できます。
 - **一時停止中・再生中の扱い**：一時停止中や再生中も、キーとペダルの押下状態だけは追い続けます。その間にキーを離しても、録音が終わらなくなることはありません。
+- **録音されていないときは Claude に伝える**：録音デーモンが止まっている、一時停止中、ピアノが未接続のときは、`list_recordings` と `get_recording` の結果の冒頭にその旨の注意が付きます。Claude は古い録音を黙って読む代わりに、それをユーザーに伝えます。
 - **App Nap 対策**：`NSProcessInfo.beginActivity` で App Nap を止めています（アイドル時のスリープは妨げません）。launchd でも `ProcessType=Interactive` を指定しています。
 
 ## MCPツール
@@ -211,6 +213,7 @@ pianotalk/config.py    設定・パス
 pianotalk/midiutil.py  音名、MIDI書き出し、録音の解析とテキスト化
 pianotalk/storage.py   ID解決、保存印、ゴミ箱、期限切れの掃除
 pianotalk/lock.py      再生中ロック
+pianotalk/presence.py  録音デーモンの状態ファイルと、そこから作る注意文
 pianotalk/daemon.py    録音デーモン（+ pianotalk-ports）
 pianotalk/menubar.py   メニューバーのアイコンとメニュー
 pianotalk/player.py    メニューからの聴き返し（.mid をピアノで再生）

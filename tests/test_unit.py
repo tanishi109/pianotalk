@@ -1,3 +1,4 @@
+import os
 from datetime import datetime, timedelta
 
 import mido
@@ -280,3 +281,52 @@ def test_default_config_has_no_device_name(home):
     config.ensure_default_config()
     c = config.load()
     assert c.input_port == "" and c.output_port == ""
+
+
+def test_presence_warning_states(home):
+    import json, os, subprocess, sys
+    from pianotalk import presence
+
+    assert "動いていない" in presence.warning()  # never started
+    presence.write({"port": "CN201 Bluetooth", "paused": False, "wanted": "「CN201」", "ambiguous": 0})
+    assert presence.warning() is None
+    assert "応答していません" in presence.warning(now=presence.read()["updated"] + presence.STALE + 5)
+
+    presence.write({"port": "CN201 Bluetooth", "paused": True, "wanted": "「CN201」", "ambiguous": 0})
+    assert "一時停止中" in presence.warning()
+    presence.write({"port": None, "paused": False, "wanted": "MIDI機器（自動選択）", "ambiguous": 0})
+    assert "MIDI機器（自動選択）" in presence.warning() and "接続されていない" in presence.warning()
+    presence.write({"port": None, "paused": False, "wanted": "MIDI機器（自動選択）", "ambiguous": 2})
+    assert "複数" in presence.warning()
+
+    # a crashed recorder leaves the file behind with a dead pid; pid 0/missing never counts as alive
+    p = config.recorder_status_path()
+    dead = subprocess.Popen([sys.executable, "-c", "pass"]); dead.wait()
+    for pid in (dead.pid, 0, None):
+        d = presence.read(); d["pid"] = pid
+        p.write_text(json.dumps(d))
+        assert "動いていない" in presence.warning()
+
+    # clear() leaves another process's file alone, removes our own
+    presence.clear()
+    assert p.exists()
+    presence.write({"port": "x", "paused": False, "wanted": "", "ambiguous": 0})
+    presence.clear()
+    assert not p.exists()
+
+
+def test_daemon_heartbeat_and_clean_exit(home):
+    from pianotalk import daemon as d, presence
+    write_config(home, inp="no-such-port", out="no-such-port")
+    dm = d.Daemon()
+    dm.beat(100.0)
+    s = presence.read()
+    assert s["pid"] == os.getpid() and s["port"] is None and s["paused"] is False
+    first = s["updated"]
+    dm.beat(101.0)  # nothing changed, heartbeat not due: no rewrite
+    assert presence.read()["updated"] == first
+    dm.paused = True
+    dm.beat(102.0)  # state changed: rewritten at once
+    assert presence.read()["paused"] is True
+    dm.shutdown()
+    assert presence.read() is None

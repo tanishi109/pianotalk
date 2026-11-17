@@ -82,6 +82,10 @@ def lock_path() -> Path:
     return home() / "playing.lock"
 
 
+def recorder_status_path() -> Path:
+    return home() / "recorder.json"
+
+
 @dataclass
 class Config:
     input_port: str = ""

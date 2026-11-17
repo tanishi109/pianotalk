@@ -24,7 +24,7 @@ from pathlib import Path
 import mido
 import rtmidi
 
-from . import config, lock, storage
+from . import config, lock, presence, storage
 from .midiutil import write_midi
 from .player import Player
 
@@ -198,6 +198,8 @@ class Daemon:
         self._next_scan = 0.0
         self._next_cleanup = 0.0
         self._waiting_logged = False
+        self._presence: tuple | None = None  # last state written to recorder.json
+        self._next_beat = 0.0
 
     def _callback(self, event, _data=None) -> None:
         # runs on CoreMIDI's thread: timestamp immediately, process on main thread
@@ -356,12 +358,28 @@ class Daemon:
         if now >= self._next_cleanup:
             self.cleanup()
             self._next_cleanup = now + CLEANUP_INTERVAL
+        self.beat(now)
+
+    def beat(self, now: float) -> None:
+        """Keep recorder.json fresh: on every state change and every HEARTBEAT seconds."""
+        state = (self.port_name, self.paused, len(self.ambiguous))
+        if state == self._presence and now < self._next_beat:
+            return
+        try:
+            presence.write({"port": self.port_name, "paused": self.paused,
+                            "wanted": config.describe_port(self.cfg.input_port),
+                            "ambiguous": len(self.ambiguous)})
+        except OSError:
+            log.exception("could not write %s", config.recorder_status_path())
+        self._presence = state
+        self._next_beat = now + presence.HEARTBEAT
 
     def shutdown(self) -> None:
         self.player.stop()
         self.drain()
         self.rec.finish()
         self.close_port()
+        presence.clear()
         log.info("recorder stopped")
 
     def run(self, menubar: bool | None = None) -> None:

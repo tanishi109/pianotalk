@@ -186,6 +186,7 @@ def test_mcp_read_tools(home):
     out = anyio.run(run)
     print(out["get_recording"][0][1])
     assert "20261116-101500" in out["list_recordings"][0][1]
+    assert out["list_recordings"][0][1].startswith("【注意】録音デーモン")  # no recorder running in this test
     rec_text = out["get_recording"][0][1]
     assert "音域: A3–C5" in rec_text and "BPM: 60" in rec_text and "1:2.00" in rec_text
     assert "[保存印]" in out["list_recordings"][1][1]
@@ -196,6 +197,7 @@ def test_mcp_read_tools(home):
     assert "ゴミ箱へ移しました" in out["delete_recording"][0][1]
     assert out["get_recording"][1][0] is True  # no recordings left -> tool error
     assert "録音がまだありません" in out["get_recording"][1][1]
+    assert "録音デーモン" in out["get_recording"][1][1]
 
 
 def test_replay_file_is_heard_stoppable_and_not_recorded(piano, home):
@@ -245,3 +247,17 @@ def test_replay_file_is_heard_stoppable_and_not_recorded(piano, home):
     assert 1 <= len(ons) < 5
     assert [0xB0, 123, 0] in received  # stop silences the piano
     synth.close_port()
+
+
+def test_presence_follows_daemon(daemon, home):
+    """What the MCP server tells Claude tracks the real recorder process."""
+    from pianotalk import presence
+    assert wait_for(lambda: presence.read() is not None)
+    assert "接続されていない" in presence.warning()
+    out = rtmidi.MidiOut()
+    out.open_virtual_port("PianoTalk Test Piano")
+    assert wait_for(lambda: presence.warning() is None), presence.read()
+    daemon.terminate()
+    daemon.wait(5)
+    assert presence.read() is None and "動いていない" in presence.warning()
+    out.close_port()
