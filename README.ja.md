@@ -170,7 +170,9 @@ MIDI 機器が1台だけなら、設定は要りません（自動で選びま�
 .venv/bin/python scripts/build-mcpb.py
 ```
 
-### 5. Claude Code に登録
+### 5. Claude Code に登録（任意）
+
+Claude Code からも使いたい場合だけ必要です。Claude デスクトップだけで使うなら手順 4 で十分なので、飛ばしてかまいません。
 
 全プロジェクトから使えるよう、user スコープで登録します。`pianotalk` フォルダで実行してください。
 

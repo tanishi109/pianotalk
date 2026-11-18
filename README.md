@@ -173,7 +173,9 @@ To build the extension yourself instead:
 
 This writes `dist/pianotalk-<version>.mcpb`.
 
-### 5. Register with Claude Code
+### 5. Register with Claude Code (optional)
+
+Only needed if you also want to use PianoTalk from Claude Code. If you only use the Claude desktop app, step 4 is enough and you can skip this.
 
 Register it at user scope so every project can use it. Run this from the `pianotalk` folder:
 
