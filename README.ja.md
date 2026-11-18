@@ -191,37 +191,6 @@ claude mcp add --scope user pianotalk -- "$(pwd)/.venv/bin/pianotalk-mcp"
 
 登録できたかは、新しいセッションで `/mcp` を開いて確認します。
 
-## ピアノなしで試す（仮想MIDIポート）
-
-### 自動テスト
-
-CoreMIDI の仮想ポートを実際に作って、次の点を確かめます。
-
-- 録音、短い録音の破棄、ペダル中は録音が終わらないこと
-- 他のアプリとのポート共有、後からポートが現れたときの再接続
-- `play_notes` の送信、エコーを録音しないこと
-- 全MCPツールの動作（録音されていないときの注意を含む）
-- 録音デーモンが同時に1つしか動かないこと
-- `.mcpb` の中身
-
-```bash
-~/.local/bin/uv run pytest -v
-```
-
-### 手動で通しで試す
-
-1. `~/PianoTalk/config.toml` を次のように一時的に書き換え、録音デーモンを再起動します（アプリならメニューの「終了」のあと開き直す。launchd なら `launchctl kickstart -k ...`。どちらも使っていなければ `.venv/bin/pianotalk-recorder` を別ターミナルで起動）。
-   ```toml
-   input_port = "PianoTalk Fake Piano"
-   output_port = "PianoTalk Monitor"
-   ```
-2. 別のターミナルで仮想の「ピアノ」を鳴らします。演奏が終わって数秒後に `recordings/` に保存されます。
-   ```bash
-   .venv/bin/pianotalk-fake-piano --repeat 2
-   ```
-3. 別のターミナルで `.venv/bin/pianotalk-monitor` を起動したまま、Claude に「さっきの演奏を読んで、続きを弾いて」と頼みます。`play_notes` が送ったノートがモニターに表示されます。
-4. 試し終わったら、`input_port` と `output_port` を元の値（自動選択なら `""`）に戻して、録音デーモンを再起動します。
-
 ## 設定（`~/PianoTalk/config.toml`）
 
 | キー | 既定値 | 説明 |
@@ -237,7 +206,40 @@ CoreMIDI の仮想ポートを実際に作って、次の点を確かめます�
 | `playback.max_seconds` | 120 | 1回の再生の上限 |
 | `ui.menubar` | true | メニューバーにアイコンを出す |
 
-## 構成
+## 開発
+
+### ピアノなしで試す（仮想MIDIポート）
+
+#### 自動テスト
+
+CoreMIDI の仮想ポートを実際に作って、次の点を確かめます。
+
+- 録音、短い録音の破棄、ペダル中は録音が終わらないこと
+- 他のアプリとのポート共有、後からポートが現れたときの再接続
+- `play_notes` の送信、エコーを録音しないこと
+- 全MCPツールの動作（録音されていないときの注意を含む）
+- 録音デーモンが同時に1つしか動かないこと
+- `.mcpb` の中身
+
+```bash
+~/.local/bin/uv run pytest -v
+```
+
+#### 手動で通しで試す
+
+1. `~/PianoTalk/config.toml` を次のように一時的に書き換え、録音デーモンを再起動します（アプリならメニューの「終了」のあと開き直す。launchd なら `launchctl kickstart -k ...`。どちらも使っていなければ `.venv/bin/pianotalk-recorder` を別ターミナルで起動）。
+   ```toml
+   input_port = "PianoTalk Fake Piano"
+   output_port = "PianoTalk Monitor"
+   ```
+2. 別のターミナルで仮想の「ピアノ」を鳴らします。演奏が終わって数秒後に `recordings/` に保存されます。
+   ```bash
+   .venv/bin/pianotalk-fake-piano --repeat 2
+   ```
+3. 別のターミナルで `.venv/bin/pianotalk-monitor` を起動したまま、Claude に「さっきの演奏を読んで、続きを弾いて」と頼みます。`play_notes` が送ったノートがモニターに表示されます。
+4. 試し終わったら、`input_port` と `output_port` を元の値（自動選択なら `""`）に戻して、録音デーモンを再起動します。
+
+### 構成
 
 ```
 pianotalk/config.py    設定・パス

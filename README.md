@@ -194,37 +194,6 @@ Without the `claude` command, you can instead add this entry to the top-level `"
  
 To check that it worked, open `/mcp` in a new session.
 
-## Trying it without a piano (virtual MIDI ports)
-
-### Automated tests
-
-The tests create real CoreMIDI virtual ports and check:
-
-- recording, discarding short takes, and that a held pedal keeps a take open
-- sharing a port with another app, and reconnecting when a port appears later
-- sending `play_notes`, and that the echo isn't recorded
-- every MCP tool, including the note added when nothing is being recorded
-- that only one recorder runs at a time
-- the contents of the `.mcpb` bundle
-
-```bash
-~/.local/bin/uv run pytest -v
-```
-
-### Manual end-to-end run
-
-1. Temporarily change `~/PianoTalk/config.toml` as below and restart the recorder (quit PianoTalk Recorder from its menu and open it again; with launchd, `launchctl kickstart -k ...`; or run `.venv/bin/pianotalk-recorder` in another terminal).
-   ```toml
-   input_port = "PianoTalk Fake Piano"
-   output_port = "PianoTalk Monitor"
-   ```
-2. In another terminal, play the virtual "piano". The take is saved to `recordings/` a few seconds after it finishes.
-   ```bash
-   .venv/bin/pianotalk-fake-piano --repeat 2
-   ```
-3. Keep `.venv/bin/pianotalk-monitor` running in another terminal and ask Claude to "read what I just played and continue it". The monitor prints the notes `play_notes` sends.
-4. When you're done, set `input_port` and `output_port` back to their previous values (`""` for automatic) and restart the recorder.
-
 ## Settings (`~/PianoTalk/config.toml`)
 
 | Key | Default | Description |
@@ -240,7 +209,40 @@ The tests create real CoreMIDI virtual ports and check:
 | `playback.max_seconds` | 120 | Longest allowed single playback |
 | `ui.menubar` | true | Show the menu bar icon |
 
-## Project layout
+## Development
+
+### Trying it without a piano (virtual MIDI ports)
+
+#### Automated tests
+
+The tests create real CoreMIDI virtual ports and check:
+
+- recording, discarding short takes, and that a held pedal keeps a take open
+- sharing a port with another app, and reconnecting when a port appears later
+- sending `play_notes`, and that the echo isn't recorded
+- every MCP tool, including the note added when nothing is being recorded
+- that only one recorder runs at a time
+- the contents of the `.mcpb` bundle
+
+```bash
+~/.local/bin/uv run pytest -v
+```
+
+#### Manual end-to-end run
+
+1. Temporarily change `~/PianoTalk/config.toml` as below and restart the recorder (quit PianoTalk Recorder from its menu and open it again; with launchd, `launchctl kickstart -k ...`; or run `.venv/bin/pianotalk-recorder` in another terminal).
+   ```toml
+   input_port = "PianoTalk Fake Piano"
+   output_port = "PianoTalk Monitor"
+   ```
+2. In another terminal, play the virtual "piano". The take is saved to `recordings/` a few seconds after it finishes.
+   ```bash
+   .venv/bin/pianotalk-fake-piano --repeat 2
+   ```
+3. Keep `.venv/bin/pianotalk-monitor` running in another terminal and ask Claude to "read what I just played and continue it". The monitor prints the notes `play_notes` sends.
+4. When you're done, set `input_port` and `output_port` back to their previous values (`""` for automatic) and restart the recorder.
+
+### Project layout
 
 ```
 pianotalk/config.py    settings and paths
