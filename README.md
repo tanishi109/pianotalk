@@ -6,7 +6,7 @@ English | [日本語](README.ja.md)
 
 PianoTalk records what you play on your digital piano, without you pressing record, and lets Claude read those recordings and play phrases back on the piano during a conversation. Use it for feedback on your playing, music-theory analysis, or asking Claude to continue a phrase you started.
 
-Recording happens while the PianoTalk recorder is running: open the PianoTalk Recorder app before you play, or have launchd keep it running from login. Each take is saved a few seconds after you stop playing.
+Recording happens while the PianoTalk Recorder app is open: open it before you play, or let it start at login. Each take is saved a few seconds after you stop playing.
 
 - **Requirements**: macOS (uses CoreMIDI), Python 3.12+ (installed for you by uv), and the Claude desktop app or Claude Code.
 - **Piano**: any digital piano with MIDI in/out (Bluetooth MIDI or USB MIDI). Tested on a Kawai CN201 over Bluetooth MIDI. Reports from other models, working or not, are welcome.
@@ -18,7 +18,7 @@ It consists of two programs:
 
 | Program | Role |
 |---|---|
-| **Recorder** `pianotalk-recorder` | Records your playing while it runs. Usually started by opening PianoTalk Recorder.app; can also be kept running from login by launchd |
+| **Recorder** PianoTalk Recorder.app | Records your playing while it's open; lives in the menu bar |
 | **MCP server** `pianotalk-mcp` | Runs over stdio. Installed in the Claude desktop app as an extension (.mcpb); can also be registered with Claude Code |
 
 ```
@@ -27,7 +27,7 @@ It consists of two programs:
   recordings/YYYY-MM-DD/      recordings (YYYYMMDD-HHMMSS.mid)
   recordings/kept/            kept recordings (never auto-deleted)
   suggestions/                phrases Claude played
-  logs/recorder.log           daemon log
+  logs/recorder.log           recorder log
   playing.lock                playback lock (created and expired automatically)
   recorder.json               recorder status, read by the MCP server (removed when the recorder quits)
 ```
@@ -39,10 +39,10 @@ It consists of two programs:
 - **What is recorded**: notes plus the sustain (CC64), sostenuto (CC66), and soft (CC67) pedals. If a pedal was already down when the take started, it is recorded at 0 s.
 - **Takes that are discarded**: takes with fewer than `min_notes` notes or shorter than `min_duration_seconds`.
 - **No recording during playback**: input is ignored while `play_notes` is playing and for `post_play_mute_seconds` afterwards, so pianos that echo received MIDI back don't create bogus takes.
-- **Automatic reconnection**: when the piano is switched off and on, or Bluetooth drops and reconnects, the daemon rescans ports every 2 seconds and reconnects on its own.
+- **Automatic reconnection**: when the piano is switched off and on, or Bluetooth drops and reconnects, the recorder rescans ports every 2 seconds and reconnects on its own.
 - **Automatic cleanup**: recordings older than the retention period (30 days by default) are moved to the Trash at startup and every 24 hours after that. Anything in `kept/` is left alone.
 - **Deletion**: every deletion moves files to the macOS Trash, so you can restore them with Finder's "Put Back".
-- **While paused or playing back**: the daemon still tracks which keys and pedals are down, so releasing them during that time never leaves a take stuck open.
+- **While paused or playing back**: the recorder still tracks which keys and pedals are down, so releasing them during that time never leaves a take stuck open.
 - **Tells Claude when nothing is being recorded**: if the recorder isn't running, is paused, or has no piano connected, `list_recordings` and `get_recording` start with a note saying so, and Claude passes it on to you instead of quietly reading old takes.
 - **Keeps recording in the background**: macOS doesn't throttle the recorder while it sits in the background, so it is ready whenever you start playing. It does not stop your Mac from sleeping.
 
@@ -95,44 +95,23 @@ For Bluetooth, open Audio MIDI Setup → MIDI Studio → Bluetooth and connect t
 
 With only one MIDI device connected, no configuration is needed: PianoTalk picks it automatically (ignoring the IAC Driver, network sessions, and PianoTalk's own virtual ports). With several MIDI devices, set `input_port` and `output_port` in `~/PianoTalk/config.toml` to part of the piano's port name (for example `"CN201"`). Matching is by substring and ignores case. The config file is created on first run. To create it now, start `.venv/bin/pianotalk-recorder` once and stop it with Ctrl-C.
 
-> Bluetooth MIDI sometimes does not reconnect by itself after the Mac restarts or the piano is switched off and on. If that happens, click "Connect" again in Bluetooth settings. Once the connection is back, the daemon picks it up automatically.
+> Bluetooth MIDI sometimes does not reconnect by itself after the Mac restarts or the piano is switched off and on. If that happens, click "Connect" again in Bluetooth settings. Once the connection is back, the recorder picks it up automatically.
 
-### 3. Start the recorder
-
-Choose one of the two ways below. Only one recorder runs at a time: if one is already running, starting another does nothing (the app says so).
-
-#### A. PianoTalk Recorder.app (start it when you want to record)
+### 3. Install PianoTalk Recorder
 
 ```bash
 ./scripts/build-recorder-app.sh
 ```
 
-This builds the app on your Mac (1–2 minutes) and, after asking, puts it in `/Applications` (or `~/Applications`). Open **PianoTalk Recorder** from Launchpad or Spotlight before you play; the piano-keys icon appears in the menu bar. Choose 終了 (Quit) from that menu, or just log out, to stop it; a take in progress is saved first. Nothing keeps running in the background.
+This builds the app on your Mac (1–2 minutes) and, after asking, puts it in `/Applications` (or `~/Applications`). The app is built and signed (ad hoc) on your own Mac, so Gatekeeper doesn't block it and no Apple developer account is involved. To update it, pull the repository and run the script again.
 
-The app is built and signed (ad hoc) on your own Mac, so Gatekeeper doesn't block it and no Apple developer account is involved. To update it, pull the repository and run the script again.
+Open **PianoTalk Recorder** from Launchpad or Spotlight before you play; a piano-keys icon appears in the menu bar and everything you play is recorded until you quit it. To stop, choose 終了 (Quit) from that menu, or just log out; a take in progress is saved first.
 
-#### B. launchd (always running from login)
-
-```bash
-./launchd/install.sh
-```
-
-From then on the daemon starts at login. It restarts automatically only if it crashes; if you stop it normally (for example with "Quit" in the menu), it stays stopped.
-
-| To… | Do this |
-|---|---|
-| Stop it | Menu bar icon → 終了 (Quit), or `launchctl kill TERM gui/$(id -u)/com.pianotalk.recorder` |
-| Start it | `launchctl kickstart gui/$(id -u)/com.pianotalk.recorder` |
-| Restart it (after changing settings) | `launchctl kickstart -k gui/$(id -u)/com.pianotalk.recorder` |
-| Pause recording only | Menu → 録音を一時停止 (Pause recording) / 録音を再開 (Resume recording) |
-| Check its state | `launchctl print gui/$(id -u)/com.pianotalk.recorder \| grep -m1 "state ="` |
-| Read the log | `tail -f ~/PianoTalk/logs/recorder.log` (or menu → ログを開く, Open log) |
-| Disable / re-enable autostart | `launchctl disable gui/$(id -u)/com.pianotalk.recorder` / `launchctl enable …` |
-| Unregister | `./launchd/install.sh uninstall` (your recordings are kept) |
+To have it start by itself, turn on ログイン時に起動 (Open at login) in the menu. It then appears in System Settings → General → Login Items, where you can also turn it off. It's off by default, so nothing runs in the background unless you choose so.
 
 #### Menu bar icon
 
-While the daemon runs, a piano-keys icon appears in the menu bar.
+While the recorder runs, a piano-keys icon appears in the menu bar.
 
 | Icon | Meaning |
 |---|---|
@@ -145,7 +124,7 @@ While the daemon runs, a piano-keys icon appears in the menu bar.
 | Speaker | Claude is playing (input ignored) |
 | Pause | Recording paused |
 
-The menu shows the last saved recording (click to reveal it in Finder), pause/resume, the recordings folder, the log, and Quit. When the piano isn't connected it also offers to open Audio MIDI Setup. If Bluetooth drops, open MIDI Studio from there and reconnect.
+The menu shows the last saved recording (click to reveal it in Finder), pause/resume (録音を一時停止 / 録音を再開), the recordings folder, the log (ログを開く), Open at login, and Quit. When the piano isn't connected it also offers to open Audio MIDI Setup. If Bluetooth drops, open MIDI Studio from there and reconnect.
 
 #### Listening back on the piano
 
@@ -156,8 +135,7 @@ The menu's ピアノで聴き返す ▸ (Play back on piano) submenu lists your 
 - The submenu is disabled while the piano is disconnected or while you are recording. If Claude is playing, playback is refused and the menu says why (with an alert sound).
 - For older files, use 録音フォルダを開く (Open recordings folder).
 
-- If you can't find the icon, check that it isn't hidden in System Settings → Menu Bar (it is listed as "PianoTalk Recorder" for the app, and as "python3.12" when the recorder runs from launchd).
-- To turn the icon off, set `[ui] menubar = false` in `config.toml` and restart the recorder (launchd only; the app always shows its icon so you can quit it).
+- If you can't find the icon, check that it isn't hidden in System Settings → Menu Bar (look for "PianoTalk Recorder").
 
 ### 4. Install the Claude desktop extension
 
@@ -201,7 +179,7 @@ To check that it worked, open `/mcp` in a new session.
 | `playback.default_bpm` | 100 | BPM for `play_notes` when none is given |
 | `playback.post_play_mute_seconds` | 1.0 | Seconds to ignore input after playback |
 | `playback.max_seconds` | 120 | Longest allowed single playback |
-| `ui.menubar` | true | Show the menu bar icon |
+| `ui.menubar` | true | Show the menu bar icon when the recorder is run from a terminal (the app always shows it) |
 
 ## Development
 
@@ -224,7 +202,7 @@ The tests create real CoreMIDI virtual ports and check:
 
 #### Manual end-to-end run
 
-1. Temporarily change `~/PianoTalk/config.toml` as below and restart the recorder (quit PianoTalk Recorder from its menu and open it again; with launchd, `launchctl kickstart -k ...`; or run `.venv/bin/pianotalk-recorder` in another terminal).
+1. Temporarily change `~/PianoTalk/config.toml` as below and restart the recorder (quit PianoTalk Recorder from its menu and open it again, or run `.venv/bin/pianotalk-recorder` in another terminal).
    ```toml
    input_port = "PianoTalk Fake Piano"
    output_port = "PianoTalk Monitor"
@@ -246,7 +224,7 @@ This writes `dist/pianotalk-<version>.mcpb`.
 
 ### Implementation notes
 
-- **App Nap**: the recorder disables App Nap with `NSProcessInfo.beginActivity` (idle sleep is not prevented), and when run from launchd the job uses `ProcessType=Interactive`.
+- **App Nap**: the recorder disables App Nap with `NSProcessInfo.beginActivity` (idle sleep is not prevented).
 
 ### Project layout
 
@@ -261,7 +239,7 @@ pianotalk/menubar.py   menu bar icon and menu
 pianotalk/player.py    listening back from the menu (plays a .mid on the piano)
 pianotalk/server.py    MCP server
 pianotalk/devtools.py  fake piano and monitor
-launchd/install.sh     launchd install/uninstall
+pianotalk/loginitem.py "Open at login" (SMAppService)
 app/                   py2app setup for PianoTalk Recorder.app
 scripts/build-recorder-app.sh  builds and installs PianoTalk Recorder.app
 mcpb/                  Claude desktop extension manifest and entry point

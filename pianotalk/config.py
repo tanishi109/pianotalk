@@ -13,9 +13,8 @@ from pathlib import Path
 
 DEFAULT_CONFIG_TOML = """\
 # PianoTalk 設定ファイル
-# 変更後は録音デーモンを再起動してください:
-#   PianoTalk Recorder アプリ: メニューバーのアイコン →「終了」のあと、開き直す
-#   launchd で動かしている場合: launchctl kickstart -k gui/$(id -u)/com.pianotalk.recorder
+# 変更後は PianoTalk Recorder を再起動してください
+# （メニューバーのアイコン →「終了」のあと、開き直す）。
 # MCPサーバーは Claude 側で再接続（アプリ再起動）すると反映されます。
 
 [midi]
@@ -50,7 +49,8 @@ post_play_mute_seconds = 1.0
 max_seconds = 120
 
 [ui]
-# 録音デーモンの起動中にメニューバーへアイコンを出す
+# ターミナルから pianotalk-recorder を動かすとき、メニューバーにアイコンを出すか
+# （PianoTalk Recorder アプリは、終了できるように常にアイコンを出します）
 menubar = true
 """
 

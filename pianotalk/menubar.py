@@ -42,7 +42,7 @@ from AppKit import (
 )
 from Foundation import NSURL, NSMakePoint, NSObject, NSRunLoop, NSRunLoopCommonModes, NSTimer
 
-from . import config, storage
+from . import config, loginitem, storage
 from .midiutil import analyze
 
 log = logging.getLogger("pianotalk.menubar")
@@ -116,6 +116,11 @@ class _Target(NSObject, protocols=[objc.protocolNamed("NSMenuDelegate"),
     def menuNeedsUpdate_(self, menu):
         if menu is self.ui.replay_menu:
             self.ui.fill_replay_menu()
+        elif menu is self.ui.menu:
+            self.ui.update_login_item()  # may have been changed in System Settings
+
+    def toggleLoginItem_(self, _sender):
+        self.ui.toggle_login_item()
 
     def replay_(self, sender):
         from pathlib import Path
@@ -198,8 +203,32 @@ class MenuBar:
         self._add("録音フォルダを開く", "openRecordings:")
         self._add("ログを開く", "openLog:")
         self.menu.addItem_(NSMenuItem.separatorItem())
-        self._add("終了（次回ログイン時に再起動）", "quit:")
+        self.login_item = self._add("ログイン時に起動", "toggleLoginItem:")
+        self.login_item.setHidden_(loginitem.status() == loginitem.UNAVAILABLE)
+        self._add("終了", "quit:")
+        self.menu.setDelegate_(self.target)
         self.item.setMenu_(self.menu)
+        self.update_login_item()
+
+    def update_login_item(self) -> None:
+        st = loginitem.status()
+        self.login_item.setHidden_(st == loginitem.UNAVAILABLE)
+        self.login_item.setState_(1 if st in (loginitem.ENABLED, loginitem.NEEDS_APPROVAL) else 0)
+        self.login_item.setTitle_("ログイン時に起動（システム設定で許可が必要）" if st == loginitem.NEEDS_APPROVAL
+                                  else "ログイン時に起動")
+
+    def toggle_login_item(self) -> None:
+        st = loginitem.status()
+        if st == loginitem.NEEDS_APPROVAL:
+            loginitem.open_settings()  # the user has to allow it there
+            return
+        err = loginitem.set_enabled(st != loginitem.ENABLED)
+        if err:
+            self.notice = (err, time.monotonic())
+        elif loginitem.status() == loginitem.NEEDS_APPROVAL:
+            loginitem.open_settings()
+        self.update_login_item()
+        self.refresh(force=True)
 
     def refresh(self, force: bool = False) -> None:
         st = self.daemon.status()

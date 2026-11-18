@@ -419,7 +419,7 @@ def acquire_single_instance():
     """Hold an exclusive lock for the life of the process; None if another recorder has it.
 
     Two recorders on the same piano would save every take twice (e.g. the app
-    started by hand while a launchd-started one is running).
+    opened while one started from a terminal is running).
     """
     import fcntl
 
@@ -469,7 +469,7 @@ def main() -> None:
         log.info("another recorder is already running; exiting")
         if in_app_bundle():
             tell_already_running()
-        return  # exit 0: launchd's KeepAlive (restart only on failure) leaves it stopped
+        return
     if in_app_bundle():
         menubar = True  # the icon is the app's only UI (and only way to quit it)
     else:

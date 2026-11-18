@@ -23,8 +23,8 @@ STALE = 60.0  # no update for this long: the recorder is hung or gone
 
 START_HINT = (
     "メニューバーにピアノのアイコンが出ていなければ止まっています。"
-    "PianoTalk Recorder アプリを使っているなら、Launchpad や Spotlight から開けば録音が始まります。"
-    "launchd で動かしているなら `launchctl kickstart gui/$(id -u)/com.pianotalk.recorder` で起動できます。"
+    "PianoTalk Recorder アプリを Launchpad や Spotlight から開けば録音が始まります"
+    "（メニューの「ログイン時に起動」をオンにしておくと、次からは自動で起動します）。"
     "まだセットアップしていなければ README の手順（https://github.com/tanishi109/pianotalk#setup）を案内してください。"
 )
 

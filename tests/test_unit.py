@@ -344,3 +344,9 @@ def test_daemon_heartbeat_and_clean_exit(home):
     assert presence.read()["paused"] is True
     dm.shutdown()
     assert presence.read() is None
+
+
+def test_login_item_unavailable_outside_app():
+    """Outside the .app bundle SMAppService has no main app to register, so the menu hides the item."""
+    from pianotalk import loginitem
+    assert loginitem.status() == loginitem.UNAVAILABLE

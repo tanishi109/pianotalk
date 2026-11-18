@@ -6,7 +6,7 @@
 
 電子ピアノ（Bluetooth MIDI）の演奏を、録音ボタンを押さなくても録音し、Claude が会話の中で録音を読んだり、フレーズをピアノで鳴らしたりできるようにするツールです。演奏へのフィードバック、楽典的な分析、続きのフレーズ提案などに使います。
 
-録音されるのは、PianoTalk の録音デーモンが動いている間です。弾く前に PianoTalk Recorder アプリを開くか、launchd でログイン時から動かしておきます。演奏が止まって数秒たつと、1テイクとして保存されます。
+録音されるのは、PianoTalk Recorder アプリを開いている間です。弾く前に開くか、ログイン時に自動で起動するようにしておきます。演奏が止まって数秒たつと、1テイクとして保存されます。
 
 - **動作環境**：macOS（CoreMIDI を使います）、Python 3.12 以上（uv が自動で入れます）、Claude デスクトップアプリまたは Claude Code
 - **ピアノ**：MIDI 入出力のある電子ピアノ（Bluetooth MIDI / USB MIDI）。動作を確認した機種は Kawai CN201（Bluetooth MIDI）です。他の機種で動いた・動かなかったという報告を歓迎します。
@@ -17,7 +17,7 @@
 
 | プログラム | 役割 |
 |---|---|
-| **録音デーモン** `pianotalk-recorder` | 動いている間、ピアノの演奏を録音する。ふだんは PianoTalk Recorder.app を開いて起動する。launchd でログイン時から動かしておくこともできる |
+| **録音アプリ** PianoTalk Recorder.app | 開いている間、ピアノの演奏を録音する。メニューバーに常駐する |
 | **MCPサーバー** `pianotalk-mcp` | stdio で動く。Claude デスクトップには拡張機能（.mcpb）として入れる。Claude Code にも登録できる |
 
 ```
@@ -26,7 +26,7 @@
   recordings/YYYY-MM-DD/      録音（YYYYMMDD-HHMMSS.mid）
   recordings/kept/            保存印付き（自動削除しない）
   suggestions/                Claude が鳴らしたフレーズ
-  logs/recorder.log           デーモンのログ
+  logs/recorder.log           録音アプリのログ
   playing.lock                再生中ロック（自動で作成・失効）
   recorder.json               録音デーモンの状態。MCPサーバーが読む（デーモン終了時に消える）
 ```
@@ -96,42 +96,21 @@ MIDI 機器が1台だけなら、設定は要りません（自動で選びま�
 
 > Bluetooth MIDI は、Mac の再起動後やピアノの電源を入れ直したあとに、自動では再接続されないことがあります。その場合は「Bluetooth設定」で「接続」を押し直してください。接続が戻れば、デーモンは自動で拾い直します。
 
-### 3. 録音デーモンを起動する
-
-次の2つの方法から選びます。録音デーモンは同時に1つしか動きません。すでに動いているときに別の方法で起動しても、何もせずに終わります（アプリの場合はその旨を表示します）。
-
-#### A. PianoTalk Recorder.app（録音したいときに起動する）
+### 3. PianoTalk Recorder を入れる
 
 ```bash
 ./scripts/build-recorder-app.sh
 ```
 
-この Mac の上でアプリをビルドし（1〜2分）、確認してから `/Applications`（書き込めなければ `~/Applications`）に置きます。弾く前に Launchpad や Spotlight から **PianoTalk Recorder** を開くと、メニューバーに鍵盤のアイコンが出ます。止めるときはメニューの「終了」を選ぶか、そのままログアウトしてください。録音中のテイクは保存してから終了します。バックグラウンドに常駐するものはありません。
+この Mac の上でアプリをビルドし（1〜2分）、確認してから `/Applications`（書き込めなければ `~/Applications`）に置きます。アプリはこの Mac の上でビルドし、ad-hoc 署名しているので、Gatekeeper に止められず、Apple の開発者アカウントも要りません。更新するときは、リポジトリを pull してからスクリプトをもう一度実行します。
 
-アプリはこの Mac の上でビルドし、ad-hoc 署名しているので、Gatekeeper に止められず、Apple の開発者アカウントも要りません。更新するときは、リポジトリを pull してからスクリプトをもう一度実行します。
+弾く前に Launchpad や Spotlight から **PianoTalk Recorder** を開きます。メニューバーに鍵盤のアイコンが出て、アプリを終了するまでの演奏が録音されます。止めるときはメニューの「終了」を選ぶか、そのままログアウトしてください。録音中のテイクは保存してから終了します。
 
-#### B. launchd（ログイン時から常に動かす）
-
-```bash
-./launchd/install.sh
-```
-
-登録すると、ログイン時に自動で起動します。異常終了したときだけ自動で再起動し、メニューの「終了」などで正常に止めた場合は止まったままです。
-
-| やりたいこと | 方法 |
-|---|---|
-| 止める | メニューバーのアイコン →「終了」、または `launchctl kill TERM gui/$(id -u)/com.pianotalk.recorder` |
-| 起動する | `launchctl kickstart gui/$(id -u)/com.pianotalk.recorder` |
-| 再起動する（設定を変えたあと） | `launchctl kickstart -k gui/$(id -u)/com.pianotalk.recorder` |
-| 録音だけ一時的に止める | メニューの「録音を一時停止」／「録音を再開」 |
-| 状態を確認する | `launchctl print gui/$(id -u)/com.pianotalk.recorder \| grep -m1 "state ="` |
-| ログを見る | `tail -f ~/PianoTalk/logs/recorder.log`（メニューの「ログを開く」でも開けます） |
-| 自動起動をやめる・戻す | `launchctl disable gui/$(id -u)/com.pianotalk.recorder` ／ `launchctl enable …` |
-| 登録を解除する | `./launchd/install.sh uninstall`（録音ファイルは残ります） |
+自動で起動させたいときは、メニューの「ログイン時に起動」をオンにします。すると「システム設定 → 一般 → ログイン項目」に並び、そこからオフにもできます。既定はオフなので、自分で選ばない限り、バックグラウンドで動き続けるものはありません。
 
 #### メニューバーのアイコン
 
-デーモンが起動している間は、メニューバーに鍵盤のアイコンが出ます。
+PianoTalk Recorder が動いている間は、メニューバーに鍵盤のアイコンが出ます。
 
 | アイコン | 状態 |
 |---|---|
@@ -144,7 +123,7 @@ MIDI 機器が1台だけなら、設定は要りません（自動で選びま�
 | スピーカー | Claude が再生中（入力を無視） |
 | 一時停止 | 録音を一時停止中 |
 
-メニューには、最後に保存した録音（クリックすると Finder で表示）、録音の一時停止／再開、録音フォルダ、ログ、終了の項目があります。ピアノが未接続のときは「Audio MIDI 設定を開く…」も出ます。Bluetooth の接続が切れたときは、ここから MIDIスタジオを開いて接続し直してください。
+メニューには、最後に保存した録音（クリックすると Finder で表示）、録音の一時停止／再開、録音フォルダ、ログ、ログイン時に起動、終了の項目があります。ピアノが未接続のときは「Audio MIDI 設定を開く…」も出ます。Bluetooth の接続が切れたときは、ここから MIDIスタジオを開いて接続し直してください。
 
 #### ピアノで聴き返す
 
@@ -155,8 +134,7 @@ MIDI 機器が1台だけなら、設定は要りません（自動で選びま�
 - ピアノが未接続のときや録音中は選べません。Claude が演奏中のときは再生せず、メニューに理由を表示します（警告音も鳴ります）。
 - もっと古いファイルは「録音フォルダを開く」から探してください。
 
-- アイコンが見当たらないときは、「システム設定 → メニューバー」で項目が非表示になっていないか確認してください（アプリの場合は「PianoTalk Recorder」、launchd で動かしている場合は「python3.12」という名前で並びます）。
-- アイコンが要らない場合は、`config.toml` の `[ui] menubar = false` にして再起動します（launchd の場合だけです。アプリは、終了できるように常にアイコンを出します）。
+- アイコンが見当たらないときは、「システム設定 → メニューバー」で「PianoTalk Recorder」が非表示になっていないか確認してください。
 
 ### 4. Claude デスクトップに拡張機能をインストール
 
@@ -200,7 +178,7 @@ claude mcp add --scope user pianotalk -- "$(pwd)/.venv/bin/pianotalk-mcp"
 | `playback.default_bpm` | 100 | `play_notes` の BPM 省略時の値 |
 | `playback.post_play_mute_seconds` | 1.0 | 再生後に入力を無視する秒数 |
 | `playback.max_seconds` | 120 | 1回の再生の上限 |
-| `ui.menubar` | true | メニューバーにアイコンを出す |
+| `ui.menubar` | true | ターミナルから録音デーモンを動かすとき、メニューバーにアイコンを出すか（アプリは常に出す） |
 
 ## 開発
 
@@ -223,7 +201,7 @@ CoreMIDI の仮想ポートを実際に作って、次の点を確かめます�
 
 #### 手動で通しで試す
 
-1. `~/PianoTalk/config.toml` を次のように一時的に書き換え、録音デーモンを再起動します（アプリならメニューの「終了」のあと開き直す。launchd なら `launchctl kickstart -k ...`。どちらも使っていなければ `.venv/bin/pianotalk-recorder` を別ターミナルで起動）。
+1. `~/PianoTalk/config.toml` を次のように一時的に書き換え、PianoTalk Recorder を再起動します（メニューの「終了」のあと開き直す。または `.venv/bin/pianotalk-recorder` を別ターミナルで起動）。
    ```toml
    input_port = "PianoTalk Fake Piano"
    output_port = "PianoTalk Monitor"
@@ -245,7 +223,7 @@ CoreMIDI の仮想ポートを実際に作って、次の点を確かめます�
 
 ### 実装メモ
 
-- **App Nap 対策**：録音デーモンは `NSProcessInfo.beginActivity` で App Nap を止めています（アイドル時のスリープは妨げません）。launchd で動かす場合は `ProcessType=Interactive` も指定しています。
+- **App Nap 対策**：録音デーモンは `NSProcessInfo.beginActivity` で App Nap を止めています（アイドル時のスリープは妨げません）。
 
 ### 構成
 
@@ -260,7 +238,7 @@ pianotalk/menubar.py   メニューバーのアイコンとメニュー
 pianotalk/player.py    メニューからの聴き返し（.mid をピアノで再生）
 pianotalk/server.py    MCPサーバー
 pianotalk/devtools.py  仮想ピアノ、モニター
-launchd/install.sh     launchd 登録・解除
+pianotalk/loginitem.py ログイン時に起動（SMAppService）
 app/                   PianoTalk Recorder.app の py2app 設定
 scripts/build-recorder-app.sh  PianoTalk Recorder.app をビルドして置く
 mcpb/                  Claude デスクトップ拡張機能のマニフェストと起動スクリプト

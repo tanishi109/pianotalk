@@ -14,6 +14,7 @@ dependencies = [
     "python-rtmidi>=1.5",
     "mcp>=2.3,<3",
     "pyobjc-framework-Cocoa>=10.0",
+    "pyobjc-framework-servicemanagement>=10.0",
 ]
 
 [project.scripts]
