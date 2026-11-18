@@ -44,7 +44,7 @@ It consists of two programs:
 - **Deletion**: every deletion moves files to the macOS Trash, so you can restore them with Finder's "Put Back".
 - **While paused or playing back**: the daemon still tracks which keys and pedals are down, so releasing them during that time never leaves a take stuck open.
 - **Tells Claude when nothing is being recorded**: if the recorder isn't running, is paused, or has no piano connected, `list_recordings` and `get_recording` start with a note saying so, and Claude passes it on to you instead of quietly reading old takes.
-- **App Nap**: App Nap is disabled with `NSProcessInfo.beginActivity` (idle sleep is not prevented), and when run from launchd the job uses `ProcessType=Interactive`.
+- **Keeps recording in the background**: macOS doesn't throttle the recorder while it sits in the background, so it is ready whenever you start playing. It does not stop your Mac from sleeping.
 
 ## MCP tools
 
@@ -165,13 +165,7 @@ Download `pianotalk-<version>.mcpb` from the [latest release](https://github.com
 
 The install screen warns that the extension gets access to your data and that the developer is not verified by Anthropic. Claude desktop shows this for every extension installed from a file. PianoTalk only reads and writes `~/PianoTalk/` and talks to your MIDI devices; the source is in this repository.
 
-To build the extension yourself instead:
-
-```bash
-.venv/bin/python scripts/build-mcpb.py
-```
-
-This writes `dist/pianotalk-<version>.mcpb`.
+To build the extension yourself instead, see [Building the extension](#building-the-extension).
 
 ### 5. Register with Claude Code (optional)
 
@@ -241,6 +235,18 @@ The tests create real CoreMIDI virtual ports and check:
    ```
 3. Keep `.venv/bin/pianotalk-monitor` running in another terminal and ask Claude to "read what I just played and continue it". The monitor prints the notes `play_notes` sends.
 4. When you're done, set `input_port` and `output_port` back to their previous values (`""` for automatic) and restart the recorder.
+
+### Building the extension
+
+```bash
+.venv/bin/python scripts/build-mcpb.py
+```
+
+This writes `dist/pianotalk-<version>.mcpb`.
+
+### Implementation notes
+
+- **App Nap**: the recorder disables App Nap with `NSProcessInfo.beginActivity` (idle sleep is not prevented), and when run from launchd the job uses `ProcessType=Interactive`.
 
 ### Project layout
 
