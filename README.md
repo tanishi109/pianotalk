@@ -32,6 +32,20 @@ It consists of two programs:
   recorder.json               recorder status, read by the MCP server (removed when the recorder quits)
 ```
 
+## What a conversation looks like
+
+Play a short phrase, then tell Claude you're done. Claude reads the take with `get_recording` and describes what it heard:
+
+![Claude reads the recording and lists the chords (C, Am, F, G) and the melody of each bar](assets/demo-listen.png)
+
+It also comments on how you played it, down to timing and the velocity of individual notes:
+
+![Claude explains the phrase and notes even timing, two soft notes, and no sustain pedal](assets/demo-details.png)
+
+Then it plays an answering phrase on your piano with `play_notes`:
+
+![Claude plays a four-bar answer on the piano and explains how it resolves to C](assets/demo-play.png)
+
 ## How it behaves
 
 - **Doesn't take over the input**: CoreMIDI inputs can be shared, so PianoTalk runs alongside notation apps and other MIDI software.
